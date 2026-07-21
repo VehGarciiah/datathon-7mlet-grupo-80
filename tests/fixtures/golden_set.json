@@ -1,0 +1,169 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Casos sintéticos para revisão humana do próximo melhor canal.",
+  "cases": [
+    {
+      "case_id": "golden_previous_success",
+      "scenario": "Histórico anterior de sucesso",
+      "request": {
+        "context": {
+          "mes_contato": "mai",
+          "dia_semana": "seg",
+          "resultado_campanha_anterior": "sucesso",
+          "dias_desde_ultimo_contato": 3,
+          "contatos_campanhas_anteriores": 2,
+          "tentativas_anteriores_campanha_atual": 0,
+          "taxa_variacao_emprego": -1.8,
+          "indice_precos_consumidor": 92.893,
+          "indice_confianca_consumidor": -46.2,
+          "euribor_3_meses": 1.299,
+          "numero_empregados": 5099.1,
+          "nunca_contatado_anteriormente": 0
+        },
+        "eligible_actions": ["celular", "telefone"],
+        "contact_authorized": true,
+        "do_not_contact": false
+      },
+      "expected": {
+        "recommended_action": "celular",
+        "is_exploration": false,
+        "used_fallback": false
+      },
+      "human_review": {
+        "status": "faz_sentido",
+        "rationale": "A resposta segue a política fixa aprovada; o histórico não é interpretado causalmente."
+      }
+    },
+    {
+      "case_id": "golden_previous_failure",
+      "scenario": "Histórico anterior de fracasso",
+      "request": {
+        "context": {
+          "mes_contato": "jun",
+          "dia_semana": "ter",
+          "resultado_campanha_anterior": "fracasso",
+          "dias_desde_ultimo_contato": 6,
+          "contatos_campanhas_anteriores": 1,
+          "tentativas_anteriores_campanha_atual": 1,
+          "taxa_variacao_emprego": -1.8,
+          "indice_precos_consumidor": 92.893,
+          "indice_confianca_consumidor": -46.2,
+          "euribor_3_meses": 1.334,
+          "numero_empregados": 5099.1,
+          "nunca_contatado_anteriormente": 0
+        },
+        "eligible_actions": ["celular", "telefone"],
+        "contact_authorized": true,
+        "do_not_contact": false
+      },
+      "expected": {
+        "recommended_action": "celular",
+        "is_exploration": false,
+        "used_fallback": false
+      },
+      "human_review": {
+        "status": "faz_sentido",
+        "rationale": "A recomendação permanece estável e não atribui o fracasso anterior ao cliente."
+      }
+    },
+    {
+      "case_id": "golden_never_contacted",
+      "scenario": "Nenhum contato anterior",
+      "request": {
+        "context": {
+          "mes_contato": "jul",
+          "dia_semana": "qua",
+          "resultado_campanha_anterior": "inexistente",
+          "dias_desde_ultimo_contato": null,
+          "contatos_campanhas_anteriores": 0,
+          "tentativas_anteriores_campanha_atual": 0,
+          "taxa_variacao_emprego": 1.4,
+          "indice_precos_consumidor": 93.918,
+          "indice_confianca_consumidor": -42.7,
+          "euribor_3_meses": 4.962,
+          "numero_empregados": 5228.1,
+          "nunca_contatado_anteriormente": 1
+        },
+        "eligible_actions": ["celular", "telefone"],
+        "contact_authorized": true,
+        "do_not_contact": false
+      },
+      "expected": {
+        "recommended_action": "celular",
+        "is_exploration": false,
+        "used_fallback": false
+      },
+      "human_review": {
+        "status": "requer_revisao",
+        "rationale": "Elegibilidade e consentimento precisam ser confirmados fora da base pública."
+      }
+    },
+    {
+      "case_id": "golden_unknown_audit_category",
+      "scenario": "Categoria desconhecida somente na camada de auditoria",
+      "audit_context_not_sent_to_policy": {
+        "profissao": "desconhecido"
+      },
+      "request": {
+        "context": {
+          "mes_contato": "ago",
+          "dia_semana": "qui",
+          "resultado_campanha_anterior": "inexistente",
+          "dias_desde_ultimo_contato": null,
+          "contatos_campanhas_anteriores": 0,
+          "tentativas_anteriores_campanha_atual": 2,
+          "taxa_variacao_emprego": 1.4,
+          "indice_precos_consumidor": 93.444,
+          "indice_confianca_consumidor": -36.1,
+          "euribor_3_meses": 4.963,
+          "numero_empregados": 5228.1,
+          "nunca_contatado_anteriormente": 1
+        },
+        "eligible_actions": ["celular", "telefone"],
+        "contact_authorized": true,
+        "do_not_contact": false
+      },
+      "expected": {
+        "recommended_action": "celular",
+        "is_exploration": false,
+        "used_fallback": false
+      },
+      "human_review": {
+        "status": "faz_sentido",
+        "rationale": "Profissão desconhecida permanece fora do payload e não controla a ação."
+      }
+    },
+    {
+      "case_id": "golden_cellular_unavailable",
+      "scenario": "Melhor braço indisponível",
+      "request": {
+        "context": {
+          "mes_contato": "nov",
+          "dia_semana": "sex",
+          "resultado_campanha_anterior": "inexistente",
+          "dias_desde_ultimo_contato": null,
+          "contatos_campanhas_anteriores": 0,
+          "tentativas_anteriores_campanha_atual": 0,
+          "taxa_variacao_emprego": -0.1,
+          "indice_precos_consumidor": 93.2,
+          "indice_confianca_consumidor": -42.0,
+          "euribor_3_meses": 4.021,
+          "numero_empregados": 5195.8,
+          "nunca_contatado_anteriormente": 1
+        },
+        "eligible_actions": ["telefone"],
+        "contact_authorized": true,
+        "do_not_contact": false
+      },
+      "expected": {
+        "recommended_action": "telefone",
+        "is_exploration": false,
+        "used_fallback": true
+      },
+      "human_review": {
+        "status": "requer_revisao",
+        "rationale": "Fallback é tecnicamente válido, mas disponibilidade e autorização devem ser comprovadas."
+      }
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+# Configuração do M5: golden set, API e ciclo de feedback local.
+schema_version: "1.0.0"
+experiment_config_path: configs/experiment.yaml
+modeling_config_path: configs/modeling.yaml
+policy_config_path: configs/policy.yaml
+
+serving:
+  selection_strategy: approved_adaptive_or_fixed_rollback
+  default_policy_mode: approved
+  approved_adaptive_mode: approved_adaptive
+  adaptive_demo_mode: adaptive_demo
+  adaptive_demo_enabled: true
+  policy_mode_environment_variable: DATATHON_POLICY_MODE
+  fixed_policy_artifact_path: artifacts/policies/fixed_policy.joblib
+  adaptive_initial_state_path: artifacts/policies/thompson_policy_state.json
+  adaptive_runtime_state_path: artifacts/serving/thompson_runtime_state.json
+  propensity_model_artifact_path: artifacts/models/propensity_pipeline.joblib
+  m4_evaluation_path: reports/policy/m4_policy_evaluation.json
+  m3_latest_run_path: reports/modeling/latest_mlflow_run.json
+  m4_latest_run_path: reports/policy/latest_mlflow_run.json
+
+storage:
+  database_path: artifacts/serving/serving.db
+  sqlite_timeout_seconds: 10
+
+feedback:
+  attribution_window_days: 7
+  accept_future_clock_skew_seconds: 300
+
+golden_set:
+  fixture_path: tests/fixtures/golden_set.json
+  results_path: reports/serving/golden_set_results.json
+
+observability:
+  service_name: datathon-next-best-channel-api
+  metrics_history_limit: 1000
+  log_level: INFO

@@ -861,9 +861,9 @@ O projeto só está pronto quando todos os itens abaixo forem verdadeiros:
 - [x] Resultado principal inclui lift, intervalo de confiança, cobertura e seeds.
 - [x] Limitações causais/offline aparecem junto ao resultado, não em nota escondida.
 - [x] MLflow registra configuração, métricas, hashes e artefatos.
-- [ ] Golden set contém cinco casos e passa pela API.
-- [ ] Feedback é idempotente e auditável.
-- [ ] Testes de dados, política e API passam.
+- [x] Golden set contém cinco casos e passa pela API.
+- [x] Feedback é idempotente e auditável.
+- [x] Testes de dados, política e API passam.
 - [ ] README consolida todos os itens obrigatórios do PDF.
 - [ ] Arquitetura AWS explica serving, estado, feedback, treino, segurança e monitoramento.
 - [ ] Vídeo demonstra recomendação funcionando em até cinco minutos.
@@ -888,4 +888,4 @@ No Windows PowerShell, documentar também a ativação de `.venv` e evitar assum
 
 ## 14. Próximo passo imediato
 
-Com M0–M4 concluídos, executar M5 sem promover o Thompson Sampling reprovado: criar o golden set, servir por padrão o rollback `best_historical_action`, implementar API e feedback idempotente e manter o estado adaptativo disponível apenas para demonstração controlada. A promoção futura exige nova evidência cujo lift e limite inferior do intervalo sejam positivos no protocolo pré-registrado.
+Com M0–M5 concluídos, executar M6 mantendo `best_historical_action` como política aprovada: consolidar arquitetura AWS, limites de observabilidade, segurança, fairness e instruções operacionais no README. O modo `adaptive_demo` permanece isolado; promoção futura exige nova evidência cujo lift e limite inferior do intervalo sejam positivos no protocolo pré-registrado.

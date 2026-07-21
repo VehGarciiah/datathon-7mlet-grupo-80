@@ -1,0 +1,138 @@
+{
+  "schema_version": "1.0.0",
+  "milestone": "M5",
+  "fixture_sha256": "6387b1b3538a5fff7334a35386cb7353c2dac7f347d531cc9ab77d303da6463b",
+  "api_config_sha256": "d3de0f610abc1b113b05491f6e3f89d02113ab2d862b5cbbd0241b739827708b",
+  "case_count": 5,
+  "passed_count": 5,
+  "all_cases_passed": true,
+  "readiness": {
+    "status": "ready",
+    "active_policy_id": "best_historical_action",
+    "active_policy_version": "1.0.0",
+    "policy_mode": "approved_fixed_rollback",
+    "model_version": "1.0.0",
+    "m3_run_id": "7cb483c397a44ec08e0e9c831c244c08",
+    "m4_run_id": "e3554905b0124e8d9163a7e63389588b",
+    "fallback_reason": "Política adaptativa com status rejected; rollback fixo mantido.",
+    "error": null
+  },
+  "cases": [
+    {
+      "case_id": "golden_previous_success",
+      "scenario": "Histórico anterior de sucesso",
+      "http_status": 201,
+      "recommended_action": "celular",
+      "policy_id": "best_historical_action",
+      "policy_version": "1.0.0",
+      "model_version": "1.0.0",
+      "is_exploration": false,
+      "used_fallback": false,
+      "reason": "Canal com maior conversão histórica calculada exclusivamente no treino.",
+      "expected": {
+        "recommended_action": "celular",
+        "is_exploration": false,
+        "used_fallback": false
+      },
+      "contract_passed": true,
+      "human_review": {
+        "status": "faz_sentido",
+        "rationale": "A resposta segue a política fixa aprovada; o histórico não é interpretado causalmente."
+      },
+      "audit_context_used_by_policy": false
+    },
+    {
+      "case_id": "golden_previous_failure",
+      "scenario": "Histórico anterior de fracasso",
+      "http_status": 201,
+      "recommended_action": "celular",
+      "policy_id": "best_historical_action",
+      "policy_version": "1.0.0",
+      "model_version": "1.0.0",
+      "is_exploration": false,
+      "used_fallback": false,
+      "reason": "Canal com maior conversão histórica calculada exclusivamente no treino.",
+      "expected": {
+        "recommended_action": "celular",
+        "is_exploration": false,
+        "used_fallback": false
+      },
+      "contract_passed": true,
+      "human_review": {
+        "status": "faz_sentido",
+        "rationale": "A recomendação permanece estável e não atribui o fracasso anterior ao cliente."
+      },
+      "audit_context_used_by_policy": false
+    },
+    {
+      "case_id": "golden_never_contacted",
+      "scenario": "Nenhum contato anterior",
+      "http_status": 201,
+      "recommended_action": "celular",
+      "policy_id": "best_historical_action",
+      "policy_version": "1.0.0",
+      "model_version": "1.0.0",
+      "is_exploration": false,
+      "used_fallback": false,
+      "reason": "Canal com maior conversão histórica calculada exclusivamente no treino.",
+      "expected": {
+        "recommended_action": "celular",
+        "is_exploration": false,
+        "used_fallback": false
+      },
+      "contract_passed": true,
+      "human_review": {
+        "status": "requer_revisao",
+        "rationale": "Elegibilidade e consentimento precisam ser confirmados fora da base pública."
+      },
+      "audit_context_used_by_policy": false
+    },
+    {
+      "case_id": "golden_unknown_audit_category",
+      "scenario": "Categoria desconhecida somente na camada de auditoria",
+      "http_status": 201,
+      "recommended_action": "celular",
+      "policy_id": "best_historical_action",
+      "policy_version": "1.0.0",
+      "model_version": "1.0.0",
+      "is_exploration": false,
+      "used_fallback": false,
+      "reason": "Canal com maior conversão histórica calculada exclusivamente no treino.",
+      "expected": {
+        "recommended_action": "celular",
+        "is_exploration": false,
+        "used_fallback": false
+      },
+      "contract_passed": true,
+      "human_review": {
+        "status": "faz_sentido",
+        "rationale": "Profissão desconhecida permanece fora do payload e não controla a ação."
+      },
+      "audit_context_used_by_policy": false
+    },
+    {
+      "case_id": "golden_cellular_unavailable",
+      "scenario": "Melhor braço indisponível",
+      "http_status": 201,
+      "recommended_action": "telefone",
+      "policy_id": "best_historical_action",
+      "policy_version": "1.0.0",
+      "model_version": "1.0.0",
+      "is_exploration": false,
+      "used_fallback": true,
+      "reason": "Melhor canal histórico do treino indisponível; fallback elegível aplicado.",
+      "expected": {
+        "recommended_action": "telefone",
+        "is_exploration": false,
+        "used_fallback": true
+      },
+      "contract_passed": true,
+      "human_review": {
+        "status": "requer_revisao",
+        "rationale": "Fallback é tecnicamente válido, mas disponibilidade e autorização devem ser comprovadas."
+      },
+      "audit_context_used_by_policy": false
+    }
+  ],
+  "interpretation": "Casos sintéticos revisam estabilidade e contrato; não demonstram efeito causal."
+}

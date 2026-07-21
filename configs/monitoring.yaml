@@ -1,0 +1,47 @@
+# Referências do M5 derivadas dos artefatos versionados; não são metas de produção.
+schema_version: "1.0.0"
+reference_split: train
+reference_split_sha256: ef4e3c08f020a9abe3168f7ff4bd63dee3c9a4fe2ea4a99ebb23a59cc89e3127
+
+data_quality:
+  policy_context:
+    categorical_allowed_values:
+      mes_contato: [mar, abr, mai, jun, jul, ago, set, out, nov, dez]
+      dia_semana: [seg, ter, qua, qui, sex]
+      resultado_campanha_anterior: [fracasso, inexistente, sucesso]
+    numeric_reference_ranges:
+      dias_desde_ultimo_contato: {minimum: 0.0, maximum: 27.0, nullable_when_never_contacted: true}
+      contatos_campanhas_anteriores: {minimum: 0, maximum: 6}
+      tentativas_anteriores_campanha_atual: {minimum: 0, maximum: 55}
+      taxa_variacao_emprego: {minimum: -3.4, maximum: 1.4}
+      indice_precos_consumidor: {minimum: 92.201, maximum: 94.767}
+      indice_confianca_consumidor: {minimum: -50.8, maximum: -26.9}
+      euribor_3_meses: {minimum: 0.634, maximum: 5.045}
+      numero_empregados: {minimum: 4963.6, maximum: 5228.1}
+  action_on_violation: reject_payload_and_request_human_review
+  rationale: Faixas são mínimos e máximos do treino M2; não foram copiadas de outro domínio.
+
+policy:
+  active_policy_id: best_historical_action
+  reference_evaluation_split: test
+  reference_mean_reward: 0.15187275525910723
+  reference_replay_coverage: 0.631050671847175
+  reward_bootstrap_confidence_interval_95:
+    lower: 0.14109799897383274
+    upper: 0.1634171369933299
+  review_rule:
+    minimum_feedback_events: 500
+    trigger_when_mean_reward_below: 0.14109799897383274
+    action: pause_adaptive_demo_and_review_eligibility_logging_and_data_quality
+  rationale: Limite deriva do IC95% factual do baseline M4 e não representa causalidade.
+
+service:
+  latency_p95_threshold_seconds: null
+  error_rate_threshold: null
+  status: collect_local_baseline_before_defining_slo
+  rationale: Não existe tráfego real suficiente para definir SLO sem inventar um número.
+
+governance:
+  audit_only_attributes_in_policy_payload: 0
+  direct_identifiers_in_logs: 0
+  automated_production_promotion_allowed: false

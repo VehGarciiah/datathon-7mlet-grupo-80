@@ -80,7 +80,7 @@
   "pipeline_schema_version": "1.0.0",
   "preprocessing": {
     "artifact_path": "artifacts/preprocessing/context_preprocessor.joblib",
-    "artifact_sha256": "c57034d1d1e01072589155cb5b0d1db4cd5b30dc6395805821d2b980f99efd12",
+    "artifact_sha256": "78234bc076442fcbc36b4bbf989580c98d6e7c465b8f38e7c5b4a54fa53bb1fa",
     "feature_count": 27,
     "feature_names": [
       "mes_contato_abr",

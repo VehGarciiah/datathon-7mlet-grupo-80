@@ -2,7 +2,7 @@
 
 Solução acadêmica de Machine Learning Engineering para experimentação adaptativa em campanhas de marketing. O MVP escolhe o próximo melhor **canal de contato** entre ações elegíveis e aprende com a conversão observada.
 
-> Status: M0–M4 concluídos — contrato, governança, dados PT-BR, preparação sem vazamento, baselines, Thompson Sampling e replay factual com 30 seeds rastreados no MLflow. O M5 inicia golden set e API, conforme o [roadmap técnico](specs/ROADMAP_IMPLEMENTACAO.md).
+> Status: M0–M5 concluídos — contrato, dados PT-BR, preparação sem vazamento, baselines, Thompson Sampling, replay, golden set e API com feedback idempotente. O M6 consolida arquitetura AWS, observabilidade e documentação final, conforme o [roadmap técnico](specs/ROADMAP_IMPLEMENTACAO.md).
 
 ## Visão do problema
 
@@ -345,6 +345,58 @@ Regret factual não foi calculado: a base não contém um oracle nem o resultado
 
 O run oficial `e3554905b0124e8d9163a7e63389588b` registra 12 parâmetros, 9 métricas, 6 artefatos e as tags `candidate=false`, `approved=false`, `rejected=true`. O notebook [`04_policy_evaluation.ipynb`](notebooks/04_policy_evaluation.ipynb) apresenta as evidências sem reimplementar o replay nem gerar runs extras.
 
+## Golden set e API demonstrável — M5
+
+O serving carrega automaticamente o modelo M3 e os metadados dos runs M3/M4. Como o Thompson Sampling está `rejected`, a estratégia `approved_adaptive_or_fixed_rollback` ativa [`BestHistoricalActionPolicy`](src/policies/fixed.py). O modo adaptativo só pode ser iniciado explicitamente como `adaptive_demo`; ele usa estado separado e não altera o status de aprovação.
+
+### Golden set
+
+Os cinco casos sintéticos versionados em [`golden_set.json`](tests/fixtures/golden_set.json) passaram pelo mesmo endpoint FastAPI. A categoria `profissao=desconhecido` aparece apenas como nota de auditoria do quarto caso e não é enviada à política.
+
+| Caso | Cenário | Recomendação | Fallback | Revisão humana |
+|---|---|---|---|---|
+| `golden_previous_success` | campanha anterior com sucesso | celular | não | faz sentido, sem alegação causal |
+| `golden_previous_failure` | campanha anterior com fracasso | celular | não | faz sentido, sem responsabilizar o cliente |
+| `golden_never_contacted` | nenhum contato anterior | celular | não | requer confirmar consentimento |
+| `golden_unknown_audit_category` | categoria desconhecida só na auditoria | celular | não | faz sentido; atributo excluído |
+| `golden_cellular_unavailable` | celular indisponível | telefone | sim | requer confirmar disponibilidade |
+
+O relatório [`golden_set_results.json`](reports/serving/golden_set_results.json) registra `5/5` contratos aprovados, versões, razões e pareceres humanos. O notebook [`05_golden_set_and_api.ipynb`](notebooks/05_golden_set_and_api.ipynb) apresenta a tabela sem criar eventos de produção.
+
+### Contrato HTTP
+
+| Método e rota | Comportamento |
+|---|---|
+| `POST /v1/recommendations` | valida contexto, autorização e braços; retorna decisão e versões |
+| `POST /v1/feedback` | registra recompensa terminal e impede duplicação/conflito |
+| `GET /health` | confirma vida do processo |
+| `GET /ready` | confirma política, modelo, SQLite e linhagem MLflow |
+| `GET /metrics` | expõe contadores e latência p95 em texto Prometheus |
+| `GET /docs` | disponibiliza Swagger gerado pelo contrato Pydantic |
+
+```mermaid
+sequenceDiagram
+    participant C as Canal autorizado
+    participant A as FastAPI
+    participant P as Política aprovada
+    participant S as SQLite
+    C->>A: contexto pré-decisão + ações elegíveis
+    A->>A: valida schema, autorização e opt-out
+    A->>P: recommend(contexto, ações)
+    P-->>A: canal, versão e razão
+    A->>S: decisão + somente contexto mínimo de aprendizado
+    A-->>C: recommendation_id + canal
+    C->>A: reward + observed_at
+    A->>S: valida vínculo, janela e idempotência
+    A-->>C: recorded ou duplicate
+```
+
+As faixas numéricas do schema vêm dos mínimos e máximos do treino versionado. Payload fora da referência, campo extra, lista de ações vazia ou inconsistência entre `nunca_contatado_anteriormente` e dias desde o contato retornam `422`. Contato não autorizado ou opt-out retorna `409` sem decisão. O banco [`serving.db`](artifacts/serving/serving.db) guarda ação, versão, braços elegíveis e apenas os dois campos de segmento; o payload completo e atributos de auditoria não são persistidos.
+
+Feedback idêntico retorna `duplicate` sem nova atualização. Uma segunda recompensa divergente retorna `409`; ID desconhecido retorna `404`; timestamp inválido retorna `422`. Feedback tardio é preservado para auditoria, mas não atualiza a política. A política fixa apenas audita recompensas. No modo demonstrativo adaptativo, somente o braço recomendado é atualizado e o estado runtime é salvo atomicamente.
+
+Logs estruturados registram rota, status, latência e versão, nunca o corpo. `/metrics` publica volumes persistidos, recompensa observada agregada, recomendações, feedbacks, exploração, fallback e latência p95 sem identificadores. [`monitoring.yaml`](configs/monitoring.yaml) preserva faixas do treino e o limite inferior do IC95% factual do baseline; SLO de serviço permanece sem limiar até existir amostra local suficiente, evitando inventar uma meta.
+
 ## Critérios de sucesso
 
 - negócio: taxa de conversão e lift absoluto/relativo contra o baseline;
@@ -413,7 +465,9 @@ datathon-7mlet-grupo-80/
 │   ├── data.yaml
 │   ├── experiment.yaml
 │   ├── modeling.yaml
-│   └── policy.yaml
+│   ├── policy.yaml
+│   ├── monitoring.yaml
+│   └── api.yaml
 ├── data/
 │   ├── interim/
 │   │   ├── bank_marketing_ptbr.csv
@@ -427,12 +481,16 @@ datathon-7mlet-grupo-80/
 │       ├── test.csv
 │       ├── train.csv
 │       └── validation.csv
+├── examples/
+│   └── recommendation_request.json
 ├── notebooks/
 │   ├── 01_EDA.ipynb
 │   ├── 02_preparation.ipynb
 │   ├── 03_modeling_and_baseline.ipynb
-│   └── 04_policy_evaluation.ipynb
+│   ├── 04_policy_evaluation.ipynb
+│   └── 05_golden_set_and_api.ipynb
 ├── artifacts/                       # preprocessadores, modelos e políticas versionados
+│   └── serving/serving.db           # schema local de decisões e feedback
 ├── mlruns/                          # artefatos das execuções registradas no MLflow
 ├── mlflow.db                        # metadados e métricas das execuções do MLflow
 ├── reports/
@@ -444,13 +502,20 @@ datathon-7mlet-grupo-80/
 │   │   ├── test_predictions.csv
 │   │   ├── test_slice_metrics.csv
 │   │   └── validation_predictions.csv
-│   └── policy/
-│       ├── latest_mlflow_run.json
-│       ├── m4_policy_evaluation.json
-│       ├── m4_replay_comparison.png
-│       ├── m4_replay_curves.csv
-│       └── m4_seed_results.csv
+│   ├── policy/
+│   │   ├── latest_mlflow_run.json
+│   │   ├── m4_policy_evaluation.json
+│   │   ├── m4_replay_comparison.png
+│   │   ├── m4_replay_curves.csv
+│   │   └── m4_seed_results.csv
+│   └── serving/
+│       └── golden_set_results.json
 ├── src/
+│   ├── api/
+│   │   ├── main.py
+│   │   ├── repository.py
+│   │   ├── schemas.py
+│   │   └── service.py
 │   ├── data/
 │   │   ├── contracts.py
 │   │   ├── prepare.py
@@ -461,6 +526,7 @@ datathon-7mlet-grupo-80/
 │   ├── models/
 │   │   └── train_propensity.py
 │   ├── evaluation/
+│   │   ├── golden_set.py
 │   │   └── replay.py
 │   └── policies/
 │       ├── base.py
@@ -473,7 +539,9 @@ datathon-7mlet-grupo-80/
 │   └── ROADMAP_IMPLEMENTACAO.md
 ├── tests/
 │   ├── integration/
+│   ├── fixtures/
 │   └── unit/
+├── pyproject.toml
 ├── README.md
 └── requirements.txt
 ```
@@ -569,7 +637,42 @@ Execute o notebook de evidências do M4:
 jupyter notebook notebooks/04_policy_evaluation.ipynb
 ```
 
-Os comandos de golden set e API serão adicionados no M5 sem alterar os contratos aprovados de forma silenciosa.
+Execute os cinco casos do golden set:
+
+```powershell
+python -m src.evaluation.golden_set --config configs/api.yaml
+```
+
+Inicie a API com a política aprovada:
+
+```powershell
+python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+```
+
+Abra `http://127.0.0.1:8000/docs` ou envie o exemplo versionado:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/v1/recommendations `
+  -H "Content-Type: application/json" `
+  --data-binary "@examples/recommendation_request.json"
+```
+
+Para uma demonstração isolada da política reprovada, em outro processo:
+
+```powershell
+$env:DATATHON_POLICY_MODE = "adaptive_demo"
+python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8001
+```
+
+Esse modo não promove a política e persiste seu posterior em `artifacts/serving/thompson_runtime_state.json`. Remova a variável antes de iniciar o serving padrão.
+
+Execute o notebook do M5:
+
+```powershell
+jupyter notebook notebooks/05_golden_set_and_api.ipynb
+```
+
+Arquitetura AWS e consolidação final da observabilidade serão adicionadas no M6.
 
 ## Checklist M0
 
@@ -651,3 +754,22 @@ Os comandos de golden set e API serão adicionados no M5 sem alterar os contrato
 - [x] política rejeitada porque o gate estatístico não foi atendido;
 - [x] parâmetros, métricas, tags e artefatos registrados no MLflow;
 - [x] notebook de evidências e testes automatizados adicionados.
+
+## Checklist M5
+
+- [x] cinco casos sintéticos estáveis e revisados por humano;
+- [x] sucesso, fracasso, primeiro contato, desconhecido e braço indisponível cobertos;
+- [x] atributos de auditoria ausentes do payload da política;
+- [x] FastAPI com recomendações, feedback, health, ready, metrics e Swagger;
+- [x] schemas Pydantic com enums, faixas de referência e campos extras bloqueados;
+- [x] política fixa selecionada automaticamente após rejeição do M4;
+- [x] fallback seguro quando o estado adaptativo está ausente;
+- [x] serviço indisponível com `503` quando o rollback obrigatório não carrega;
+- [x] SQLite transacional guarda somente contexto mínimo;
+- [x] feedback idempotente, conflito terminal e ID desconhecido cobertos;
+- [x] concorrência básica do feedback validada com oito threads;
+- [x] estado adaptativo isolado e atualização restrita ao modo demonstrativo;
+- [x] logs estruturados sem payload e métricas técnicas agregadas;
+- [x] referências de qualidade/recompensa derivadas dos artefatos versionados;
+- [x] SLO não definido enquanto não existe amostra de latência representativa;
+- [x] exemplos de execução, notebook e testes de contrato adicionados.

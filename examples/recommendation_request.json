@@ -1,0 +1,19 @@
+{
+  "context": {
+    "mes_contato": "mai",
+    "dia_semana": "seg",
+    "resultado_campanha_anterior": "sucesso",
+    "dias_desde_ultimo_contato": 3,
+    "contatos_campanhas_anteriores": 2,
+    "tentativas_anteriores_campanha_atual": 0,
+    "taxa_variacao_emprego": -1.8,
+    "indice_precos_consumidor": 92.893,
+    "indice_confianca_consumidor": -46.2,
+    "euribor_3_meses": 1.299,
+    "numero_empregados": 5099.1,
+    "nunca_contatado_anteriormente": 0
+  },
+  "eligible_actions": ["celular", "telefone"],
+  "contact_authorized": true,
+  "do_not_contact": false
+}
