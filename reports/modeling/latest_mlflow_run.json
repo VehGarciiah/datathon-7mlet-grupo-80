@@ -1,0 +1,6 @@
+{
+  "experiment_id": "1",
+  "run_id": "7cb483c397a44ec08e0e9c831c244c08",
+  "run_name": "logistic-propensity-v1",
+  "tracking_uri": "sqlite:///C:/FIAP/EML/WORKSPACES/workspace-techchallenger/datathon-7mlet-grupo-80/mlflow.db"
+}

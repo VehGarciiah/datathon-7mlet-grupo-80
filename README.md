@@ -2,7 +2,7 @@
 
 Solução acadêmica de Machine Learning Engineering para experimentação adaptativa em campanhas de marketing. O MVP escolhe o próximo melhor **canal de contato** entre ações elegíveis e aprende com a conversão observada.
 
-> Status: M0, M1 e M2 concluídos — contrato, governança, tradução PT-BR, EDA e preparação sem vazamento. Baselines e estratégia adaptativa começam no M3, conforme o [roadmap técnico](specs/ROADMAP_IMPLEMENTACAO.md).
+> Status: M0–M3 concluídos — contrato, governança, dados PT-BR, preparação sem vazamento, baseline determinístico e baseline preditivo rastreado no MLflow. Thompson Sampling e replay comparativo começam no M4, conforme o [roadmap técnico](specs/ROADMAP_IMPLEMENTACAO.md).
 
 ## Visão do problema
 
@@ -211,7 +211,7 @@ O `ColumnTransformer` é ajustado exclusivamente nas 28.823 linhas de treino:
 - binária: passagem direta;
 - saída: 27 features em matrizes esparsas para treino, validação e teste.
 
-O artefato local `artifacts/preprocessing/context_preprocessor.joblib`, as matrizes `.npz` e a lista de features são regeneráveis e permanecem fora do Git. Os CSVs processados e seus hashes são versionáveis:
+O artefato `artifacts/preprocessing/context_preprocessor.joblib`, as matrizes `.npz` e a lista de features são regeneráveis, mas ficam versionados como evidências reproduzíveis do M2. Os CSVs processados e seus hashes também são versionados:
 
 | Artefato | Finalidade |
 |---|---|
@@ -223,6 +223,77 @@ O artefato local `artifacts/preprocessing/context_preprocessor.joblib`, as matri
 | [`preparation.metadata.json`](data/processed/preparation.metadata.json) | hashes, versões, IDs removidos, features, shapes e prevalência |
 
 O notebook [`02_preparation.ipynb`](notebooks/02_preparation.ipynb) demonstra o processo sem duplicar lógica. Testes automatizados comprovam que `duration`, campanha bruta, ação, target, identificador e campos de auditoria não entram no contexto.
+
+## Baselines determinístico e preditivo — M3
+
+O M3 cria duas referências distintas:
+
+1. uma política determinística que sempre recomenda o canal com maior conversão histórica no treino;
+2. um modelo de propensão que estima `P(conversão | contexto, canal observado)`.
+
+A política decide uma ação. O modelo preditivo estima uma probabilidade associativa e não deve ser confundido com a política nem com efeito causal.
+
+### Baseline determinístico
+
+A classe [`BestHistoricalActionPolicy`](src/policies/fixed.py) foi ajustada exclusivamente em `train`. Empates são resolvidos pela ordem estável do contrato e, se o melhor braço estiver indisponível, a política usa a primeira ação elegível como fallback.
+
+| Canal no treino | Observações | Conversões | Conversão | IC 95% de Wilson |
+|---|---:|---:|---:|---:|
+| Celular | 18.313 | 2.699 | 14,738% | 14,232%–15,259% |
+| Telefone | 10.510 | 548 | 5,214% | 4,805%–5,656% |
+
+O braço congelado é `celular`. No replay factual:
+
+| Split | Eventos aceitos | Cobertura | Conversões | Recompensa média |
+|---|---:|---:|---:|---:|
+| Validação | 3.924 | 63,54% | 561 | 14,30% |
+| Teste | 3.898 | 63,11% | 592 | 15,19% |
+
+Somente eventos cujo canal histórico coincide com a recomendação possuem recompensa observável. A cobertura deve sempre acompanhar a recompensa; esse resultado não estima causalmente o que ocorreria ao trocar o canal.
+
+### Baseline preditivo
+
+O script [`train_propensity.py`](src/models/train_propensity.py) compara `DummyClassifier(strategy="prior")` com Regressão Logística L2. O pipeline recebe os 12 campos de contexto do M2 mais `canal_contato`, ajusta todo o preprocessing no treino e gera 29 features transformadas.
+
+PR-AUC/average precision é a métrica de seleção por causa do desbalanceamento. O limiar `0,204832` maximiza F1 na validação e é congelado antes do teste.
+
+| Modelo | Split | PR-AUC | ROC-AUC | Brier | F1 |
+|---|---|---:|---:|---:|---:|
+| Dummy | Validação | 0,1127 | 0,5000 | 0,1000 | 0,0000 |
+| Regressão Logística | Validação | 0,4493 | 0,7954 | 0,0790 | 0,4909 |
+| Dummy | Teste | 0,1127 | 0,5000 | 0,1000 | 0,0000 |
+| Regressão Logística | Teste | 0,4664 | 0,8129 | 0,0771 | 0,5054 |
+
+No teste, o modelo alcançou precision de 45,37%, recall de 57,04% e matriz de confusão `TN=5003`, `FP=478`, `FN=299`, `TP=397`. A PR-AUC de validação superou o Dummy em 0,3366 ponto absoluto, aprovando o gate do M3. Como o Brier e a curva por decis melhoraram de forma consistente contra o Dummy, um calibrador adicional não foi aplicado nesta baseline.
+
+Após gerar as predições, o teste é avaliado em 34 fatias agregadas de idade, profissão, estado civil, escolaridade, inadimplência e empréstimos, todas com pelo menos 100 registros. Esses atributos não são features: o cruzamento ocorre somente pela camada separada de auditoria. PR-AUC varia com a prevalência de cada fatia, então diferenças são sinais para investigação e não comprovam, isoladamente, discriminação ou desempenho superior de um grupo.
+
+Os relatórios versionáveis são:
+
+| Artefato | Conteúdo |
+|---|---|
+| [`m3_metrics.json`](reports/modeling/m3_metrics.json) | métricas, calibração, matriz de confusão, contratos, hashes e limitações |
+| [`fixed_baseline.json`](reports/modeling/fixed_baseline.json) | braço escolhido, suporte, intervalo de confiança e replay |
+| [`logistic_coefficients.csv`](reports/modeling/logistic_coefficients.csv) | coeficientes e odds ratios para análise técnica |
+| [`validation_predictions.csv`](reports/modeling/validation_predictions.csv) | probabilidades e predições da validação |
+| [`test_predictions.csv`](reports/modeling/test_predictions.csv) | probabilidades e predições do teste congelado |
+| [`test_slice_metrics.csv`](reports/modeling/test_slice_metrics.csv) | PR-AUC, ROC-AUC, Brier e classificação por fatia de auditoria |
+
+O pipeline treinado fica em `artifacts/models/propensity_pipeline.joblib` e a política em `artifacts/policies/fixed_policy.joblib`. Ambos são regeneráveis, ficam versionados como evidências do M3 e passaram por inferência smoke usando o mesmo preprocessing do treino.
+
+### MLflow
+
+O comando oficial registra onze parâmetros, oito métricas e os artefatos do M3 no experimento `datathon-7mlet-m3-baselines`. O backend é SQLite (`mlflow.db`), pois versões atuais do MLflow mantêm o antigo file store apenas em modo de manutenção. O banco, `mlruns/` e `artifacts/` são versionados intencionalmente para permitir auditoria acadêmica, estudo e reprodução por outro desenvolvedor. Nenhum segredo ou dado operacional real deve ser armazenado nesses diretórios.
+
+O identificador da execução mais recente está em [`latest_mlflow_run.json`](reports/modeling/latest_mlflow_run.json). O notebook [`03_modeling_and_baseline.ipynb`](notebooks/03_modeling_and_baseline.ipynb) apenas reproduz os relatórios e não cria runs extras.
+
+### Limites de interpretação
+
+- o canal observado não foi alocado aleatoriamente;
+- não existe recompensa contrafactual para o canal não executado;
+- coeficientes regularizados representam associações condicionais, não regras causais;
+- atributos demográficos e financeiros da camada de auditoria não entram no modelo;
+- o limiar técnico maximiza F1 e deverá ser substituído por uma regra baseada em custo/capacidade antes de produção.
 
 ## Critérios de sucesso
 
@@ -290,7 +361,8 @@ Quando houver mais de um integrante, a aprovação de uma versão candidata deve
 datathon-7mlet-grupo-80/
 ├── configs/
 │   ├── data.yaml
-│   └── experiment.yaml
+│   ├── experiment.yaml
+│   └── modeling.yaml
 ├── data/
 │   ├── interim/
 │   │   ├── bank_marketing_ptbr.csv
@@ -306,15 +378,35 @@ datathon-7mlet-grupo-80/
 │       └── validation.csv
 ├── notebooks/
 │   ├── 01_EDA.ipynb
-│   └── 02_preparation.ipynb
+│   ├── 02_preparation.ipynb
+│   └── 03_modeling_and_baseline.ipynb
+├── artifacts/                       # preprocessadores, modelos e políticas versionados
+├── mlruns/                          # artefatos das execuções registradas no MLflow
+├── mlflow.db                        # metadados e métricas das execuções do MLflow
+├── reports/
+│   └── modeling/
+│       ├── fixed_baseline.json
+│       ├── latest_mlflow_run.json
+│       ├── logistic_coefficients.csv
+│       ├── m3_metrics.json
+│       ├── test_predictions.csv
+│       ├── test_slice_metrics.csv
+│       └── validation_predictions.csv
 ├── src/
 │   ├── data/
 │   │   ├── contracts.py
 │   │   ├── prepare.py
 │   │   ├── translate.py
 │   │   └── validate.py
-│   └── features/
-│       └── build_features.py
+│   ├── features/
+│   │   └── build_features.py
+│   ├── models/
+│   │   └── train_propensity.py
+│   └── policies/
+│       ├── base.py
+│       └── fixed.py
+├── scripts/
+│   └── rebase_mlflow_paths.py       # adapta URIs do MLflow ao caminho do clone
 ├── specs/
 │   ├── fiap-postech-mlet-datathon.pdf
 │   └── ROADMAP_IMPLEMENTACAO.md
@@ -341,6 +433,14 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 ```
+
+Adapte os caminhos dos artefatos registrados no SQLite ao diretório do clone atual:
+
+```powershell
+python scripts/rebase_mlflow_paths.py
+```
+
+O MLflow persiste URIs absolutas no banco. Esse comando altera somente `artifact_location` e `artifact_uri` em `mlflow.db`, preservando runs, parâmetros, métricas e artefatos. Use `python scripts/rebase_mlflow_paths.py --check-only` para verificar o vínculo depois da adaptação. É normal que o banco versionado apareça como modificado localmente quando o clone estiver em outro caminho.
 
 Valide o contrato YAML:
 
@@ -378,7 +478,25 @@ Execute o notebook de preparação:
 jupyter notebook notebooks/02_preparation.ipynb
 ```
 
-Os comandos de treinamento, avaliação, MLflow e API serão adicionados nos marcos seguintes sem alterar os contratos aprovados de forma silenciosa.
+Treine os baselines e registre o experimento no MLflow:
+
+```powershell
+python -m src.models.train_propensity --config configs/modeling.yaml
+```
+
+Abra a interface local do MLflow:
+
+```powershell
+python -m mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+```
+
+Execute o notebook do M3:
+
+```powershell
+jupyter notebook notebooks/03_modeling_and_baseline.ipynb
+```
+
+Os comandos de política adaptativa, replay final e API serão adicionados nos marcos seguintes sem alterar os contratos aprovados de forma silenciosa.
 
 ## Checklist M0
 
@@ -423,4 +541,23 @@ Os comandos de treinamento, avaliação, MLflow e API serão adicionados nos mar
 - [x] 27 nomes de features e shapes registrados;
 - [x] hashes dos outputs e versões das dependências registrados;
 - [x] notebook de preparação executável do kernel limpo;
+- [x] testes unitários e de integração aprovados.
+
+## Checklist M3
+
+- [x] baseline determinístico ajustado somente no treino;
+- [x] canal, suporte, conversão e intervalo de confiança documentados;
+- [x] fallback determinístico para indisponibilidade do melhor braço;
+- [x] replay factual reporta recompensa e cobertura juntas;
+- [x] DummyClassifier treinado como referência mínima;
+- [x] Regressão Logística com preprocessing interno e serializado;
+- [x] `duration`, campanha bruta, identificador e auditoria ausentes do modelo;
+- [x] seleção por PR-AUC na validação;
+- [x] limiar selecionado por F1 na validação e congelado no teste;
+- [x] PR-AUC, ROC-AUC, Brier, calibração e matriz de confusão reportados;
+- [x] avaliação pós-predição em 34 fatias agregadas com suporte mínimo;
+- [x] modelo supera Dummy em PR-AUC e Brier na validação;
+- [x] inferência smoke executada com o pipeline persistido;
+- [x] parâmetros, métricas e artefatos registrados no MLflow com SQLite;
+- [x] notebook executável do kernel limpo;
 - [x] testes unitários e de integração aprovados.

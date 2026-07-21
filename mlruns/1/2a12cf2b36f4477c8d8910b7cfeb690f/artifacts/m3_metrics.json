@@ -1,0 +1,411 @@
+{
+  "artifacts": {
+    "fixed_policy_path": "artifacts/policies/fixed_policy.joblib",
+    "fixed_policy_sha256": "7c62586cf5dd47e56b414fa0f7379d98b6a4bd1391912b512433a1ee05752ebf",
+    "model_path": "artifacts/models/propensity_pipeline.joblib",
+    "model_sha256": "1d83d1e77e590bf2d88358c0688d7c495480ea2c0c8e93bb7bad40326c4f1008",
+    "smoke_inference_probability": 0.03116379444866574
+  },
+  "audit_slices": {
+    "best_average_precision_slice": {
+      "average_precision": 0.7250050257985432,
+      "brier_score": 0.19889440659335164,
+      "f1": 0.6707317073170732,
+      "positive_rate": 0.43448275862068964,
+      "precision": 0.5445544554455446,
+      "recall": 0.873015873015873,
+      "roc_auc": 0.7715834301200154,
+      "row_count": 145,
+      "slice_column": "faixa_idade",
+      "slice_value": "60_mais"
+    },
+    "evaluated_slice_count": 34,
+    "evaluation_split": "test",
+    "interpretation": "Diagnóstico agregado; os campos de auditoria não foram usados no treino.",
+    "metrics_path": "reports/modeling/test_slice_metrics.csv",
+    "minimum_slice_size": 100,
+    "slice_columns": [
+      "faixa_idade",
+      "profissao",
+      "estado_civil",
+      "escolaridade",
+      "inadimplencia",
+      "financiamento_habitacional",
+      "emprestimo_pessoal"
+    ],
+    "worst_average_precision_slice": {
+      "average_precision": 0.12176336396452488,
+      "brier_score": 0.03985254007778962,
+      "f1": 0.1348314606741573,
+      "positive_rate": 0.0420353982300885,
+      "precision": 0.1875,
+      "recall": 0.10526315789473684,
+      "roc_auc": 0.643504450116824,
+      "row_count": 1356,
+      "slice_column": "inadimplencia",
+      "slice_value": "desconhecido"
+    }
+  },
+  "contracts": {
+    "action_column": "canal_contato",
+    "blocked_columns_absent": [
+      "duracao_contato",
+      "contatos_campanha_atual",
+      "event_id"
+    ],
+    "input_columns": [
+      "mes_contato",
+      "dia_semana",
+      "resultado_campanha_anterior",
+      "dias_desde_ultimo_contato",
+      "contatos_campanhas_anteriores",
+      "tentativas_anteriores_campanha_atual",
+      "taxa_variacao_emprego",
+      "indice_precos_consumidor",
+      "indice_confianca_consumidor",
+      "euribor_3_meses",
+      "numero_empregados",
+      "nunca_contatado_anteriormente",
+      "canal_contato"
+    ],
+    "target_column": "resultado",
+    "transformed_feature_count": 29
+  },
+  "data": {
+    "preparation_metadata_sha256": "15218f386c460781d8a806a8f3f474693a424dda8c08eba0014f343e18788d92",
+    "split_hashes": {
+      "test": "0ab45b0abdf23104f58f43d490c93173d855786397523fefc68f670d3ab33d10",
+      "train": "ef4e3c08f020a9abe3168f7ff4bd63dee3c9a4fe2ea4a99ebb23a59cc89e3127",
+      "validation": "fd3da70c8a13933bf33709739c6f09faac7b9154323a0983e2b0e93d5fbbedee"
+    }
+  },
+  "fixed_policy": {
+    "action_order": [
+      "celular",
+      "telefone"
+    ],
+    "best_action": "celular",
+    "fit_split": "train",
+    "policy_id": "best_historical_action",
+    "policy_version": "1.0.0",
+    "replay": {
+      "test": {
+        "accepted_events": 3898,
+        "conversions": 592,
+        "cumulative_reward": 592,
+        "limitation": "Métrica observacional condicionada à coincidência com a ação histórica.",
+        "mean_reward": 0.15187275525910723,
+        "recommended_action": "celular",
+        "replay_coverage": 0.631050671847175,
+        "total_events": 6177
+      },
+      "validation": {
+        "accepted_events": 3924,
+        "conversions": 561,
+        "cumulative_reward": 561,
+        "limitation": "Métrica observacional condicionada à coincidência com a ação histórica.",
+        "mean_reward": 0.14296636085626913,
+        "recommended_action": "celular",
+        "replay_coverage": 0.6353626943005182,
+        "total_events": 6176
+      }
+    },
+    "statistics": [
+      {
+        "action": "celular",
+        "confidence_interval_lower": 0.14232146322039013,
+        "confidence_interval_upper": 0.15258972389475375,
+        "conversion_rate": 0.14738164145688856,
+        "conversions": 2699,
+        "observations": 18313
+      },
+      {
+        "action": "telefone",
+        "confidence_interval_lower": 0.04805189799742256,
+        "confidence_interval_upper": 0.05655700856907042,
+        "conversion_rate": 0.05214081826831589,
+        "conversions": 548,
+        "observations": 10510
+      }
+    ]
+  },
+  "limitations": [
+    "O modelo estima associação P(conversão | contexto, canal observado), não efeito causal.",
+    "O teste histórico não contém recompensa contrafactual para o canal não executado.",
+    "Atributos de auditoria foram excluídos do modelo e devem ser usados apenas para análise de disparidade."
+  ],
+  "milestone": "M3",
+  "predictive_models": {
+    "dummy": {
+      "fit_split": "train",
+      "strategy": "prior",
+      "test": {
+        "accuracy": 0.8873239436619719,
+        "average_precision": 0.11267605633802817,
+        "balanced_accuracy": 0.5,
+        "brier_score": 0.09998016319361122,
+        "calibration_curve": [
+          {
+            "mean_predicted_probability": 0.1126530895465559,
+            "observed_fraction": 0.11267605633802817
+          }
+        ],
+        "confusion_matrix": {
+          "false_negatives": 696,
+          "false_positives": 0,
+          "true_negatives": 5481,
+          "true_positives": 0
+        },
+        "f1": 0.0,
+        "log_loss": 0.35207396283296644,
+        "positive_rate": 0.11267605633802817,
+        "precision": 0.0,
+        "predicted_positive_rate": 0.0,
+        "recall": 0.0,
+        "roc_auc": 0.5,
+        "row_count": 6177,
+        "threshold": 0.5
+      },
+      "validation": {
+        "accuracy": 0.8873056994818653,
+        "average_precision": 0.11269430051813471,
+        "balanced_accuracy": 0.5,
+        "brier_score": 0.09999429684720723,
+        "calibration_curve": [
+          {
+            "mean_predicted_probability": 0.1126530895465559,
+            "observed_fraction": 0.11269430051813471
+          }
+        ],
+        "confusion_matrix": {
+          "false_negatives": 696,
+          "false_positives": 0,
+          "true_negatives": 5480,
+          "true_positives": 0
+        },
+        "f1": 0.0,
+        "log_loss": 0.3521116174144201,
+        "positive_rate": 0.11269430051813471,
+        "precision": 0.0,
+        "predicted_positive_rate": 0.0,
+        "recall": 0.0,
+        "roc_auc": 0.5,
+        "row_count": 6176,
+        "threshold": 0.5
+      }
+    },
+    "logistic_regression": {
+      "fit_split": "train",
+      "model_id": "logistic_propensity",
+      "model_version": "1.0.0",
+      "test": {
+        "accuracy": 0.8742107819329772,
+        "average_precision": 0.4663516764227985,
+        "balanced_accuracy": 0.7415959678890713,
+        "brier_score": 0.07705922441967952,
+        "calibration_curve": [
+          {
+            "mean_predicted_probability": 0.029270077135945503,
+            "observed_fraction": 0.03322784810126582
+          },
+          {
+            "mean_predicted_probability": 0.03666010044454763,
+            "observed_fraction": 0.025682182985553772
+          },
+          {
+            "mean_predicted_probability": 0.040921811068648554,
+            "observed_fraction": 0.02138157894736842
+          },
+          {
+            "mean_predicted_probability": 0.04770117620012107,
+            "observed_fraction": 0.04560260586319218
+          },
+          {
+            "mean_predicted_probability": 0.05454503178295244,
+            "observed_fraction": 0.05221518987341772
+          },
+          {
+            "mean_predicted_probability": 0.06193157662930555,
+            "observed_fraction": 0.05787781350482315
+          },
+          {
+            "mean_predicted_probability": 0.07222417273484819,
+            "observed_fraction": 0.04926108374384237
+          },
+          {
+            "mean_predicted_probability": 0.09413209269545302,
+            "observed_fraction": 0.10281923714759536
+          },
+          {
+            "mean_predicted_probability": 0.18560562035176675,
+            "observed_fraction": 0.22402597402597402
+          },
+          {
+            "mean_predicted_probability": 0.49006309331924136,
+            "observed_fraction": 0.5161812297734628
+          }
+        ],
+        "confusion_matrix": {
+          "false_negatives": 299,
+          "false_positives": 478,
+          "true_negatives": 5003,
+          "true_positives": 397
+        },
+        "f1": 0.5054105665181413,
+        "log_loss": 0.27039604582606674,
+        "positive_rate": 0.11267605633802817,
+        "precision": 0.45371428571428574,
+        "predicted_positive_rate": 0.14165452485025093,
+        "recall": 0.5704022988505747,
+        "roc_auc": 0.8129122129320305,
+        "row_count": 6177,
+        "threshold": 0.20483154052796865
+      },
+      "threshold_selection": {
+        "threshold": 0.20483154052796865,
+        "validation_f1": 0.4908976773383553
+      },
+      "threshold_selection_split": "validation",
+      "train": {
+        "accuracy": 0.8643444471429067,
+        "average_precision": 0.451807375083759,
+        "balanced_accuracy": 0.7214997561811827,
+        "brier_score": 0.07857547541275509,
+        "calibration_curve": [
+          {
+            "mean_predicted_probability": 0.029282409346259586,
+            "observed_fraction": 0.030849220103986136
+          },
+          {
+            "mean_predicted_probability": 0.036665805808678904,
+            "observed_fraction": 0.03643173306094655
+          },
+          {
+            "mean_predicted_probability": 0.04077431953386615,
+            "observed_fraction": 0.03818118708781673
+          },
+          {
+            "mean_predicted_probability": 0.047845325081778814,
+            "observed_fraction": 0.051210101718695195
+          },
+          {
+            "mean_predicted_probability": 0.054526290611746596,
+            "observed_fraction": 0.048268625393494226
+          },
+          {
+            "mean_predicted_probability": 0.062212033012180305,
+            "observed_fraction": 0.06478781988986071
+          },
+          {
+            "mean_predicted_probability": 0.07241716688478893,
+            "observed_fraction": 0.0712719298245614
+          },
+          {
+            "mean_predicted_probability": 0.095203566435763,
+            "observed_fraction": 0.08826619964973731
+          },
+          {
+            "mean_predicted_probability": 0.19304205080077283,
+            "observed_fraction": 0.20358020358020357
+          },
+          {
+            "mean_predicted_probability": 0.4969557588453802,
+            "observed_fraction": 0.4960110995490808
+          }
+        ],
+        "confusion_matrix": {
+          "false_negatives": 1503,
+          "false_positives": 2407,
+          "true_negatives": 23169,
+          "true_positives": 1744
+        },
+        "f1": 0.4714787780481211,
+        "log_loss": 0.27801025265549373,
+        "positive_rate": 0.1126530895465427,
+        "precision": 0.42013972536738137,
+        "predicted_positive_rate": 0.14401693092322104,
+        "recall": 0.5371111795503541,
+        "roc_auc": 0.789675846928408,
+        "row_count": 28823,
+        "threshold": 0.20483154052796865
+      },
+      "validation": {
+        "accuracy": 0.8686852331606217,
+        "average_precision": 0.4493339503120315,
+        "balanced_accuracy": 0.7347229213860224,
+        "brier_score": 0.07897249320718867,
+        "calibration_curve": [
+          {
+            "mean_predicted_probability": 0.028766428255505145,
+            "observed_fraction": 0.03387096774193549
+          },
+          {
+            "mean_predicted_probability": 0.03662082613945193,
+            "observed_fraction": 0.03492063492063492
+          },
+          {
+            "mean_predicted_probability": 0.040930043409463886,
+            "observed_fraction": 0.03801652892561983
+          },
+          {
+            "mean_predicted_probability": 0.04752957149490743,
+            "observed_fraction": 0.05128205128205128
+          },
+          {
+            "mean_predicted_probability": 0.054410495845548114,
+            "observed_fraction": 0.0425531914893617
+          },
+          {
+            "mean_predicted_probability": 0.062341742957410795,
+            "observed_fraction": 0.052132701421800945
+          },
+          {
+            "mean_predicted_probability": 0.07292509953019688,
+            "observed_fraction": 0.06456953642384106
+          },
+          {
+            "mean_predicted_probability": 0.09741761625192526,
+            "observed_fraction": 0.10191082802547771
+          },
+          {
+            "mean_predicted_probability": 0.19571946225404813,
+            "observed_fraction": 0.22553897180762852
+          },
+          {
+            "mean_predicted_probability": 0.4835843717461901,
+            "observed_fraction": 0.4854368932038835
+          }
+        ],
+        "confusion_matrix": {
+          "false_negatives": 305,
+          "false_positives": 506,
+          "true_negatives": 4974,
+          "true_positives": 391
+        },
+        "f1": 0.4908976773383553,
+        "log_loss": 0.27748831181361894,
+        "positive_rate": 0.11269430051813471,
+        "precision": 0.4358974358974359,
+        "predicted_positive_rate": 0.14523963730569947,
+        "recall": 0.5617816091954023,
+        "roc_auc": 0.7954125241211512,
+        "row_count": 6176,
+        "threshold": 0.20483154052796865
+      }
+    }
+  },
+  "schema_version": "1.0.0",
+  "selection": {
+    "gate_passed": true,
+    "primary_metric": "average_precision",
+    "selected_model": "logistic_propensity",
+    "validation_gain_over_dummy": 0.33663964979389677
+  },
+  "versions": {
+    "joblib": "1.5.3",
+    "mlflow": "3.14.0",
+    "pandas": "2.3.3",
+    "scikit_learn": "1.8.0",
+    "scipy": "1.17.1"
+  }
+}

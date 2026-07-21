@@ -1,0 +1,57 @@
+# Configuração do M3: baseline determinístico e propensão de conversão.
+schema_version: "1.0.0"
+data_config_path: configs/data.yaml
+experiment_config_path: configs/experiment.yaml
+
+fixed_policy:
+  id: best_historical_action
+  version: "1.0.0"
+  confidence_level: 0.95
+  selection_split: train
+  evaluation_protocol: logged_action_replay
+  artifact_path: artifacts/policies/fixed_policy.joblib
+
+propensity_model:
+  id: logistic_propensity
+  version: "1.0.0"
+  selection_metric: average_precision
+  threshold_strategy: max_f1_on_validation
+  dummy:
+    strategy: prior
+    threshold: 0.5
+  logistic_regression:
+    penalty: l2
+    solver: lbfgs
+    C: 1.0
+    max_iter: 2000
+    class_weight: null
+    random_seed: 42
+  artifact_path: artifacts/models/propensity_pipeline.joblib
+
+evaluation:
+  minimum_slice_size: 100
+  audit_slice_columns:
+    - faixa_idade
+    - profissao
+    - estado_civil
+    - escolaridade
+    - inadimplencia
+    - financiamento_habitacional
+    - emprestimo_pessoal
+
+reports:
+  directory: reports/modeling
+  metrics_path: reports/modeling/m3_metrics.json
+  fixed_baseline_path: reports/modeling/fixed_baseline.json
+  coefficients_path: reports/modeling/logistic_coefficients.csv
+  validation_predictions_path: reports/modeling/validation_predictions.csv
+  test_predictions_path: reports/modeling/test_predictions.csv
+  test_slice_metrics_path: reports/modeling/test_slice_metrics.csv
+  latest_mlflow_run_path: reports/modeling/latest_mlflow_run.json
+
+tracking:
+  enabled: true
+  backend: sqlite
+  database_path: mlflow.db
+  experiment_name: datathon-7mlet-m3-baselines
+  run_name: logistic-propensity-v1

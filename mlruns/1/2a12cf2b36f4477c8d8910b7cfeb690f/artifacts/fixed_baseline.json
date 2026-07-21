@@ -1,0 +1,50 @@
+{
+  "action_order": [
+    "celular",
+    "telefone"
+  ],
+  "best_action": "celular",
+  "fit_split": "train",
+  "policy_id": "best_historical_action",
+  "policy_version": "1.0.0",
+  "replay": {
+    "test": {
+      "accepted_events": 3898,
+      "conversions": 592,
+      "cumulative_reward": 592,
+      "limitation": "Métrica observacional condicionada à coincidência com a ação histórica.",
+      "mean_reward": 0.15187275525910723,
+      "recommended_action": "celular",
+      "replay_coverage": 0.631050671847175,
+      "total_events": 6177
+    },
+    "validation": {
+      "accepted_events": 3924,
+      "conversions": 561,
+      "cumulative_reward": 561,
+      "limitation": "Métrica observacional condicionada à coincidência com a ação histórica.",
+      "mean_reward": 0.14296636085626913,
+      "recommended_action": "celular",
+      "replay_coverage": 0.6353626943005182,
+      "total_events": 6176
+    }
+  },
+  "statistics": [
+    {
+      "action": "celular",
+      "confidence_interval_lower": 0.14232146322039013,
+      "confidence_interval_upper": 0.15258972389475375,
+      "conversion_rate": 0.14738164145688856,
+      "conversions": 2699,
+      "observations": 18313
+    },
+    {
+      "action": "telefone",
+      "confidence_interval_lower": 0.04805189799742256,
+      "confidence_interval_upper": 0.05655700856907042,
+      "conversion_rate": 0.05214081826831589,
+      "conversions": 548,
+      "observations": 10510
+    }
+  ]
+}

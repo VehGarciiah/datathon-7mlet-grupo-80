@@ -18,8 +18,5 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Artefatos operacionais futuros
-artifacts/
-mlruns/
-mlflow.db
-*.sqlite3
+# Evidências de MLOps são versionadas intencionalmente neste projeto acadêmico.
+# Isso inclui artifacts/, mlruns/, mlflow.db e outros bancos SQLite de evidência.

@@ -155,7 +155,11 @@ datathon-7mlet-grupo-80/
 │   ├── unit/
 │   ├── integration/
 │   └── fixtures/
-├── artifacts/                       # artefatos locais ignorados pelo Git
+├── artifacts/                       # evidências reproduzíveis versionadas
+├── mlruns/                          # artefatos das execuções do MLflow
+├── mlflow.db                        # metadados e métricas do MLflow
+├── scripts/
+│   └── rebase_mlflow_paths.py       # adapta URIs ao diretório do clone
 ├── specs/
 ├── .env.example
 ├── .gitignore
@@ -200,7 +204,7 @@ O `requirements.txt` atual cobre apenas a exploração inicial. Durante a implem
 | MLOps | `mlflow` | tracking e artefatos |
 | Qualidade | `pytest`, `httpx`, `ruff` | testes, cliente de teste e lint/format |
 
-Adicionar comandos únicos — por exemplo, via `Makefile`, `Taskfile` ou scripts Python portáveis — para `prepare`, `train`, `evaluate`, `test` e `serve`. Fixar versões somente depois de testar a instalação do zero; não copiar um lock incompatível com o ambiente do grupo. O `.gitignore` deve excluir `.venv`, caches, credenciais, `mlruns`/banco local e artefatos gerados, preservando apenas amostras e evidências deliberadamente versionadas.
+Adicionar comandos únicos — por exemplo, via `Makefile`, `Taskfile` ou scripts Python portáveis — para `prepare`, `train`, `evaluate`, `test` e `serve`. Fixar versões somente depois de testar a instalação do zero; não copiar um lock incompatível com o ambiente do grupo. O `.gitignore` deve excluir `.venv`, caches e credenciais. Neste projeto acadêmico, `artifacts/`, `mlruns/` e `mlflow.db` são evidências deliberadamente versionadas; precisam permanecer livres de segredos e ter seus caminhos locais adaptados após o clone.
 
 ## 8. Roadmap por fase
 

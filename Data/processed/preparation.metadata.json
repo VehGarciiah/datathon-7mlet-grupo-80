@@ -80,7 +80,7 @@
   "pipeline_schema_version": "1.0.0",
   "preprocessing": {
     "artifact_path": "artifacts/preprocessing/context_preprocessor.joblib",
-    "artifact_sha256": "e387c08103cf8823871509d04dcb6c8691dc46429470eabe047eca1601bb059f",
+    "artifact_sha256": "c57034d1d1e01072589155cb5b0d1db4cd5b30dc6395805821d2b980f99efd12",
     "feature_count": 27,
     "feature_names": [
       "mes_contato_abr",
@@ -128,7 +128,7 @@
     },
     "versions": {
       "joblib": "1.5.3",
-      "pandas": "3.0.1",
+      "pandas": "2.3.3",
       "scikit_learn": "1.8.0",
       "scipy": "1.17.1"
     }
