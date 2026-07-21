@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.0.0",
+  "policy_id": "segmented_thompson_sampling",
+  "policy_version": "1.0.0",
+  "action_order": [
+    "celular",
+    "telefone"
+  ],
+  "segment_columns": [
+    "resultado_campanha_anterior",
+    "nunca_contatado_anteriormente"
+  ],
+  "minimum_support_per_action": 100,
+  "prior": {
+    "alpha": 1.0,
+    "beta": 1.0
+  },
+  "historical_reward_warm_start": false,
+  "random_seed": 1000,
+  "rng_state": {
+    "bit_generator": "PCG64",
+    "state": {
+      "state": 160298080023750866990043981581432466665,
+      "inc": 119065948144835586474643535142778641169
+    },
+    "has_uint32": 0,
+    "uinteger": 0
+  },
+  "global_posteriors": {
+    "celular": {
+      "alpha": 1.0,
+      "beta": 1.0
+    },
+    "telefone": {
+      "alpha": 1.0,
+      "beta": 1.0
+    }
+  },
+  "segment_posteriors": {
+    "[\"fracasso\",1]": {
+      "celular": {
+        "alpha": 1.0,
+        "beta": 1.0
+      },
+      "telefone": {
+        "alpha": 1.0,
+        "beta": 1.0
+      }
+    },
+    "[\"inexistente\",1]": {
+      "celular": {
+        "alpha": 1.0,
+        "beta": 1.0
+      },
+      "telefone": {
+        "alpha": 1.0,
+        "beta": 1.0
+      }
+    }
+  },
+  "segment_support": {
+    "[\"fracasso\",0]": {
+      "celular": 99,
+      "telefone": 4
+    },
+    "[\"fracasso\",1]": {
+      "celular": 2679,
+      "telefone": 194
+    },
+    "[\"inexistente\",1]": {
+      "celular": 14638,
+      "telefone": 10234
+    },
+    "[\"sucesso\",0]": {
+      "celular": 897,
+      "telefone": 78
+    }
+  },
+  "processed_feedback_ids": []
+}

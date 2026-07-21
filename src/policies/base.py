@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 
 @dataclass(frozen=True)
@@ -16,6 +16,7 @@ class Decision:
     is_exploration: bool
     used_fallback: bool
     reason: str
+    details: dict[str, Any] | None = None
 
 
 class Policy(Protocol):
@@ -23,4 +24,15 @@ class Policy(Protocol):
 
     def recommend(self, context: dict, eligible_actions: list[str]) -> Decision:
         """Seleciona uma ação elegível sem executar a ação no mundo externo."""
+        ...
+
+    def update(
+        self,
+        action: str,
+        reward: int,
+        context: dict,
+        *,
+        feedback_id: str | None = None,
+    ) -> bool:
+        """Atualiza somente o braço observado e rejeita feedback duplicado."""
         ...

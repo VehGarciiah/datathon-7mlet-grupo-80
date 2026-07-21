@@ -856,11 +856,11 @@ O projeto só está pronto quando todos os itens abaixo forem verdadeiros:
 - [ ] O pipeline é executável do zero em ambiente limpo.
 - [ ] `duracao_contato` não entra em nenhuma decisão ou treino.
 - [ ] Preprocessing é ajustado apenas no treino.
-- [ ] Baseline fixo e política adaptativa usam o mesmo protocolo.
-- [ ] Thompson Sampling tem prior, fallback, exploração e atualização documentados.
-- [ ] Resultado principal inclui lift, intervalo de confiança, cobertura e seeds.
-- [ ] Limitações causais/offline aparecem junto ao resultado, não em nota escondida.
-- [ ] MLflow registra configuração, métricas, hashes e artefatos.
+- [x] Baseline fixo e política adaptativa usam o mesmo protocolo.
+- [x] Thompson Sampling tem prior, fallback, exploração e atualização documentados.
+- [x] Resultado principal inclui lift, intervalo de confiança, cobertura e seeds.
+- [x] Limitações causais/offline aparecem junto ao resultado, não em nota escondida.
+- [x] MLflow registra configuração, métricas, hashes e artefatos.
 - [ ] Golden set contém cinco casos e passa pela API.
 - [ ] Feedback é idempotente e auditável.
 - [ ] Testes de dados, política e API passam.
@@ -888,4 +888,4 @@ No Windows PowerShell, documentar também a ativação de `.venv` e evitar assum
 
 ## 14. Próximo passo imediato
 
-Executar M0 e M1 antes de ampliar o notebook atual: criar o contrato de decisão, o dicionário de tradução e os testes de paridade da base. Em seguida, regenerar o dataset processado sem `duration` e só então iniciar baseline, Thompson Sampling e API. Essa ordem elimina o maior risco de retrabalho e garante que todas as etapas posteriores usem o mesmo contrato de dados.
+Com M0–M4 concluídos, executar M5 sem promover o Thompson Sampling reprovado: criar o golden set, servir por padrão o rollback `best_historical_action`, implementar API e feedback idempotente e manter o estado adaptativo disponível apenas para demonstração controlada. A promoção futura exige nova evidência cujo lift e limite inferior do intervalo sejam positivos no protocolo pré-registrado.

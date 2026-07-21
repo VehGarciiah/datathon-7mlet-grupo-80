@@ -1,0 +1,267 @@
+{
+  "schema_version": "1.0.0",
+  "milestone": "M4",
+  "policy": {
+    "policy_id": "segmented_thompson_sampling",
+    "policy_version": "1.0.0",
+    "family": "thompson_sampling",
+    "reward_distribution": "beta_bernoulli",
+    "prior": {
+      "alpha": 1.0,
+      "beta": 1.0
+    },
+    "segment_columns": [
+      "resultado_campanha_anterior",
+      "nunca_contatado_anteriormente"
+    ],
+    "minimum_support_per_action": 100,
+    "supported_segment_count": 2,
+    "observed_segment_count": 4,
+    "sparse_segment_fallback": "global_action_posterior",
+    "historical_reward_warm_start": false,
+    "update_rule": "Somente o braço recomendado em eventos aceitos no replay.",
+    "duplicate_feedback_rule": "feedback_id aplicado no máximo uma vez.",
+    "state_persistence": "JSON versionado com substituição atômica."
+  },
+  "evaluation_protocol": {
+    "name": "logged_action_replay",
+    "stable_order_column": "event_id",
+    "seed_count": 30,
+    "seeds": [
+      1000,
+      1001,
+      1002,
+      1003,
+      1004,
+      1005,
+      1006,
+      1007,
+      1008,
+      1009,
+      1010,
+      1011,
+      1012,
+      1013,
+      1014,
+      1015,
+      1016,
+      1017,
+      1018,
+      1019,
+      1020,
+      1021,
+      1022,
+      1023,
+      1024,
+      1025,
+      1026,
+      1027,
+      1028,
+      1029
+    ],
+    "bootstrap_iterations": 2000,
+    "confidence_level": 0.95,
+    "state_reset_per_split_and_seed": true,
+    "counterfactual_rule": "Eventos sem coincidência de ação não revelam recompensa.",
+    "regret": {
+      "value": null,
+      "reason": "Não existe referência contrafactual válida para calcular regret factual."
+    }
+  },
+  "splits": {
+    "validation": {
+      "fixed_baseline": {
+        "split": "validation",
+        "seed": null,
+        "total_events": 6176,
+        "accepted_events": 3924,
+        "replay_coverage": 0.6353626943005182,
+        "conversions": 561,
+        "mean_reward": 0.14296636085626913,
+        "cumulative_reward": 561,
+        "exploration_events": 0,
+        "exploration_rate": 0.0,
+        "fallback_events": 0,
+        "fallback_rate": 0.0,
+        "action_distribution": {
+          "celular": {
+            "count": 6176,
+            "rate": 1.0
+          },
+          "telefone": {
+            "count": 0,
+            "rate": 0.0
+          }
+        },
+        "bootstrap_confidence_interval": {
+          "lower": 0.13226299694189603,
+          "upper": 0.15342125382262994
+        }
+      },
+      "adaptive_policy": {
+        "seed_count": 30,
+        "mean_reward": {
+          "mean": 0.1281812352194615,
+          "standard_deviation": 0.025168786440073778,
+          "bootstrap_confidence_interval": {
+            "lower": 0.11917249576494482,
+            "upper": 0.13655354699561806
+          }
+        },
+        "replay_coverage": {
+          "mean": 0.4077018566493955,
+          "standard_deviation": 0.12234169075817962
+        },
+        "cumulative_reward": {
+          "mean": 336.03333333333336,
+          "standard_deviation": 148.30176210577596
+        },
+        "exploration_rate": {
+          "mean": 0.14449481865284974,
+          "standard_deviation": 0.046626998246730174
+        },
+        "action_distribution_mean_rate": {
+          "celular": 0.6817735319516406,
+          "telefone": 0.3182264680483592
+        },
+        "lift_vs_fixed": {
+          "absolute_mean": -0.014785125636807638,
+          "absolute_standard_deviation": 0.02516878644007377,
+          "absolute_bootstrap_confidence_interval": {
+            "lower": -0.023156406456689704,
+            "upper": -0.005828008904391807
+          },
+          "relative_mean": -0.10341681461467586,
+          "relative_standard_deviation": 0.17604691263966038,
+          "relative_bootstrap_confidence_interval": {
+            "lower": -0.16416237082120444,
+            "upper": -0.0402969421886235
+          }
+        },
+        "candidate_gate": {
+          "checks": {
+            "positive_mean_lift": false,
+            "positive_lift_ci_lower": false
+          },
+          "passed": false
+        }
+      }
+    },
+    "test": {
+      "fixed_baseline": {
+        "split": "test",
+        "seed": null,
+        "total_events": 6177,
+        "accepted_events": 3898,
+        "replay_coverage": 0.631050671847175,
+        "conversions": 592,
+        "mean_reward": 0.15187275525910723,
+        "cumulative_reward": 592,
+        "exploration_events": 0,
+        "exploration_rate": 0.0,
+        "fallback_events": 0,
+        "fallback_rate": 0.0,
+        "action_distribution": {
+          "celular": {
+            "count": 6177,
+            "rate": 1.0
+          },
+          "telefone": {
+            "count": 0,
+            "rate": 0.0
+          }
+        },
+        "bootstrap_confidence_interval": {
+          "lower": 0.14109799897383274,
+          "upper": 0.1634171369933299
+        }
+      },
+      "adaptive_policy": {
+        "seed_count": 30,
+        "mean_reward": {
+          "mean": 0.1525908174922247,
+          "standard_deviation": 0.012232700807310684,
+          "bootstrap_confidence_interval": {
+            "lower": 0.1478474455848087,
+            "upper": 0.15661177909867316
+          }
+        },
+        "replay_coverage": {
+          "mean": 0.5166531757595381,
+          "standard_deviation": 0.09241864404371392
+        },
+        "cumulative_reward": {
+          "mean": 491.7,
+          "standard_deviation": 109.21574662265888
+        },
+        "exploration_rate": {
+          "mean": 0.10746316982353894,
+          "standard_deviation": 0.045122633065016376
+        },
+        "action_distribution_mean_rate": {
+          "celular": 0.8317575953807134,
+          "telefone": 0.1682424046192866
+        },
+        "lift_vs_fixed": {
+          "absolute_mean": 0.0007180622331174507,
+          "absolute_standard_deviation": 0.012232700807310683,
+          "absolute_bootstrap_confidence_interval": {
+            "lower": -0.00393606390679514,
+            "upper": 0.004655009880013478
+          },
+          "relative_mean": 0.004728051663330785,
+          "relative_standard_deviation": 0.0805457225454342,
+          "relative_bootstrap_confidence_interval": {
+            "lower": -0.025841925567432616,
+            "upper": 0.03107964282108748
+          }
+        },
+        "candidate_gate": {
+          "checks": {
+            "positive_mean_lift": true,
+            "positive_lift_ci_lower": false
+          },
+          "passed": false
+        }
+      }
+    }
+  },
+  "selection": {
+    "evaluation_splits": [
+      "validation",
+      "test"
+    ],
+    "gates_by_split": {
+      "validation": false,
+      "test": false
+    },
+    "candidate_gate_passed": false,
+    "status": "rejected",
+    "rollback_policy": "best_historical_action",
+    "interpretation": "A política adaptativa só é candidata quando o lift médio e o limite inferior do intervalo são positivos."
+  },
+  "reproducibility": {
+    "git_commit": "4504ffff0384336460d4fb990233239c2729ec22",
+    "policy_config_sha256": "6325c6ce37e76b33a69e7618ee02ad8f1fe64587fd6ee4f9f44f39bd921e5b05",
+    "preparation_metadata_sha256": "15218f386c460781d8a806a8f3f474693a424dda8c08eba0014f343e18788d92",
+    "split_hashes": {
+      "train": "ef4e3c08f020a9abe3168f7ff4bd63dee3c9a4fe2ea4a99ebb23a59cc89e3127",
+      "validation": "fd3da70c8a13933bf33709739c6f09faac7b9154323a0983e2b0e93d5fbbedee",
+      "test": "0ab45b0abdf23104f58f43d490c93173d855786397523fefc68f670d3ab33d10"
+    }
+  },
+  "artifacts": {
+    "initial_policy_state": "artifacts/policies/thompson_policy_state.json",
+    "initial_policy_state_sha256": "7392d4dfc5855e5a578484f88a72f73cd8f45437d701deb581b9164fe009f0fc",
+    "seed_results": "reports/policy/m4_seed_results.csv",
+    "curves": "reports/policy/m4_replay_curves.csv",
+    "comparison_plot": "reports/policy/m4_replay_comparison.png"
+  },
+  "limitations": [
+    "O replay é observacional e condicionado à coincidência com a ação histórica.",
+    "Coberturas diferentes tornam recompensa cumulativa uma medida de apoio, não um lift causal.",
+    "A propensão da política histórica é desconhecida; IPS não foi usado como evidência principal.",
+    "A ausência de contrafactual impede afirmar o resultado de uma troca de canal por cliente.",
+    "A política deve permanecer rejeitada se o intervalo de lift incluir zero."
+  ]
+}

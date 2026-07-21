@@ -2,7 +2,7 @@
 
 Solução acadêmica de Machine Learning Engineering para experimentação adaptativa em campanhas de marketing. O MVP escolhe o próximo melhor **canal de contato** entre ações elegíveis e aprende com a conversão observada.
 
-> Status: M0–M3 concluídos — contrato, governança, dados PT-BR, preparação sem vazamento, baseline determinístico e baseline preditivo rastreado no MLflow. Thompson Sampling e replay comparativo começam no M4, conforme o [roadmap técnico](specs/ROADMAP_IMPLEMENTACAO.md).
+> Status: M0–M4 concluídos — contrato, governança, dados PT-BR, preparação sem vazamento, baselines, Thompson Sampling e replay factual com 30 seeds rastreados no MLflow. O M5 inicia golden set e API, conforme o [roadmap técnico](specs/ROADMAP_IMPLEMENTACAO.md).
 
 ## Visão do problema
 
@@ -295,6 +295,56 @@ O identificador da execução mais recente está em [`latest_mlflow_run.json`](r
 - atributos demográficos e financeiros da camada de auditoria não entram no modelo;
 - o limiar técnico maximiza F1 e deverá ser substituído por uma regra baseada em custo/capacidade antes de produção.
 
+## Thompson Sampling e replay factual — M4
+
+O M4 implementa [`SegmentedThompsonSamplingPolicy`](src/policies/thompson_sampling.py), uma política Beta-Bernoulli com prior `Beta(1,1)`, seed controlada, atualização idempotente e estado JSON persistido por substituição atômica. Os segmentos usam somente `resultado_campanha_anterior` e `nunca_contatado_anteriormente`, ambos disponíveis antes da decisão.
+
+```mermaid
+flowchart LR
+    A[Evento em ordem por event_id] --> B[Thompson amostra braços elegíveis]
+    B --> C{Recomendação coincide<br/>com canal histórico?}
+    C -- não --> D[Não revela recompensa<br/>nem atualiza posterior]
+    C -- sim --> E[Revela recompensa binária]
+    E --> F[Atualiza somente o braço escolhido]
+    F --> G[Registra feedback_id idempotente]
+```
+
+O treino determina apenas quais segmentos têm suporte mínimo de 100 observações por braço. As recompensas históricas não aquecem os posteriores, evitando transformar o viés da política observacional em prior. Dos quatro segmentos observados, dois atendem ao suporte; os demais recorrem ao posterior global do braço.
+
+### Protocolo e resultado
+
+Cada uma das 30 seeds começa do mesmo estado inicial em validação e teste. Baseline e política adaptativa recebem a mesma sequência estável. Eventos sem coincidência de ação são descartados porque não existe recompensa contrafactual observada.
+
+| Split | Política | Recompensa média | Desvio entre seeds | Cobertura | Recompensa cumulativa | Exploração |
+|---|---|---:|---:|---:|---:|---:|
+| Validação | Baseline fixa | 14,30% | — | 63,54% | 561 | 0% |
+| Validação | Thompson Sampling | 12,82% | 2,52 p.p. | 40,77% | 336,0 em média | 14,45% |
+| Teste | Baseline fixa | 15,19% | — | 63,11% | 592 | 0% |
+| Teste | Thompson Sampling | 15,26% | 1,22 p.p. | 51,67% | 491,7 em média | 10,75% |
+
+| Split | Lift absoluto médio | Lift relativo médio | IC95% bootstrap do lift | Gate |
+|---|---:|---:|---:|---|
+| Validação | -1,48 p.p. | -10,34% | [-2,32; -0,58] p.p. | reprovado |
+| Teste | +0,07 p.p. | +0,47% | [-0,39; +0,47] p.p. | reprovado |
+
+O IC do lift usa as 30 seeds como unidade de reamostragem; o IC da recompensa fixa reamostra os eventos aceitos. O pequeno ganho médio do teste não é estatisticamente confiável, pois o intervalo inclui zero, e não se repetiu na validação. A política fica marcada como `rejected`; `best_historical_action` permanece como rollback. Não houve seleção oportunista de seed. Recompensa cumulativa também não deve ser comparada isoladamente, porque as coberturas são diferentes.
+
+Regret factual não foi calculado: a base não contém um oracle nem o resultado do canal não executado. IPS também não é evidência principal porque a propensão da política histórica é desconhecida.
+
+### Evidências do M4
+
+| Artefato | Conteúdo |
+|---|---|
+| [`policy.yaml`](configs/policy.yaml) | prior, segmentos, suporte, seeds, bootstrap e gate congelados |
+| [`m4_policy_evaluation.json`](reports/policy/m4_policy_evaluation.json) | comparação completa, intervalos, gate e limitações |
+| [`m4_seed_results.csv`](reports/policy/m4_seed_results.csv) | métricas individuais das 30 seeds por split |
+| [`m4_replay_curves.csv`](reports/policy/m4_replay_curves.csv) | curvas agregadas evento a evento |
+| [`m4_replay_comparison.png`](reports/policy/m4_replay_comparison.png) | recompensa cumulativa, escolhas e exploração |
+| [`thompson_policy_state.json`](artifacts/policies/thompson_policy_state.json) | estado inicial versionado e restaurável |
+| [`latest_mlflow_run.json`](reports/policy/latest_mlflow_run.json) | run oficial do experimento M4 |
+
+O run oficial `e3554905b0124e8d9163a7e63389588b` registra 12 parâmetros, 9 métricas, 6 artefatos e as tags `candidate=false`, `approved=false`, `rejected=true`. O notebook [`04_policy_evaluation.ipynb`](notebooks/04_policy_evaluation.ipynb) apresenta as evidências sem reimplementar o replay nem gerar runs extras.
+
 ## Critérios de sucesso
 
 - negócio: taxa de conversão e lift absoluto/relativo contra o baseline;
@@ -362,7 +412,8 @@ datathon-7mlet-grupo-80/
 ├── configs/
 │   ├── data.yaml
 │   ├── experiment.yaml
-│   └── modeling.yaml
+│   ├── modeling.yaml
+│   └── policy.yaml
 ├── data/
 │   ├── interim/
 │   │   ├── bank_marketing_ptbr.csv
@@ -379,19 +430,26 @@ datathon-7mlet-grupo-80/
 ├── notebooks/
 │   ├── 01_EDA.ipynb
 │   ├── 02_preparation.ipynb
-│   └── 03_modeling_and_baseline.ipynb
+│   ├── 03_modeling_and_baseline.ipynb
+│   └── 04_policy_evaluation.ipynb
 ├── artifacts/                       # preprocessadores, modelos e políticas versionados
 ├── mlruns/                          # artefatos das execuções registradas no MLflow
 ├── mlflow.db                        # metadados e métricas das execuções do MLflow
 ├── reports/
-│   └── modeling/
-│       ├── fixed_baseline.json
+│   ├── modeling/
+│   │   ├── fixed_baseline.json
+│   │   ├── latest_mlflow_run.json
+│   │   ├── logistic_coefficients.csv
+│   │   ├── m3_metrics.json
+│   │   ├── test_predictions.csv
+│   │   ├── test_slice_metrics.csv
+│   │   └── validation_predictions.csv
+│   └── policy/
 │       ├── latest_mlflow_run.json
-│       ├── logistic_coefficients.csv
-│       ├── m3_metrics.json
-│       ├── test_predictions.csv
-│       ├── test_slice_metrics.csv
-│       └── validation_predictions.csv
+│       ├── m4_policy_evaluation.json
+│       ├── m4_replay_comparison.png
+│       ├── m4_replay_curves.csv
+│       └── m4_seed_results.csv
 ├── src/
 │   ├── data/
 │   │   ├── contracts.py
@@ -402,9 +460,12 @@ datathon-7mlet-grupo-80/
 │   │   └── build_features.py
 │   ├── models/
 │   │   └── train_propensity.py
+│   ├── evaluation/
+│   │   └── replay.py
 │   └── policies/
 │       ├── base.py
-│       └── fixed.py
+│       ├── fixed.py
+│       └── thompson_sampling.py
 ├── scripts/
 │   └── rebase_mlflow_paths.py       # adapta URIs do MLflow ao caminho do clone
 ├── specs/
@@ -484,6 +545,12 @@ Treine os baselines e registre o experimento no MLflow:
 python -m src.models.train_propensity --config configs/modeling.yaml
 ```
 
+Execute o Thompson Sampling, as 30 seeds do replay e o tracking do M4:
+
+```powershell
+python -m src.evaluation.replay --config configs/policy.yaml
+```
+
 Abra a interface local do MLflow:
 
 ```powershell
@@ -496,7 +563,13 @@ Execute o notebook do M3:
 jupyter notebook notebooks/03_modeling_and_baseline.ipynb
 ```
 
-Os comandos de política adaptativa, replay final e API serão adicionados nos marcos seguintes sem alterar os contratos aprovados de forma silenciosa.
+Execute o notebook de evidências do M4:
+
+```powershell
+jupyter notebook notebooks/04_policy_evaluation.ipynb
+```
+
+Os comandos de golden set e API serão adicionados no M5 sem alterar os contratos aprovados de forma silenciosa.
 
 ## Checklist M0
 
@@ -561,3 +634,20 @@ Os comandos de política adaptativa, replay final e API serão adicionados nos m
 - [x] parâmetros, métricas e artefatos registrados no MLflow com SQLite;
 - [x] notebook executável do kernel limpo;
 - [x] testes unitários e de integração aprovados.
+
+## Checklist M4
+
+- [x] Thompson Sampling Beta-Bernoulli com prior `Beta(1,1)`;
+- [x] segmentos formados apenas por contexto pré-decisão e suporte mínimo;
+- [x] fallback global para segmentos esparsos;
+- [x] seed controlada e 30 seeds usadas sem seleção oportunista;
+- [x] atualização restrita ao braço factual dos eventos aceitos;
+- [x] feedback duplicado rejeitado por `feedback_id`;
+- [x] estado versionado, restaurável e persistido atomicamente;
+- [x] baseline e política adaptativa avaliadas na mesma sequência;
+- [x] recompensa, cobertura, escolhas, exploração e lift reportados;
+- [x] intervalo bootstrap de 95% e dispersão entre seeds reportados;
+- [x] regret omitido com justificativa contrafactual explícita;
+- [x] política rejeitada porque o gate estatístico não foi atendido;
+- [x] parâmetros, métricas, tags e artefatos registrados no MLflow;
+- [x] notebook de evidências e testes automatizados adicionados.
