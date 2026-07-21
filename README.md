@@ -2,7 +2,7 @@
 
 Solução acadêmica de Machine Learning Engineering para experimentação adaptativa em campanhas de marketing. O MVP escolhe o próximo melhor **canal de contato** entre ações elegíveis e aprende com a conversão observada.
 
-> Status: M0 e M1 concluídos — contrato, governança, tradução PT-BR, validação e EDA reproduzível. A preparação para modelagem começa no M2, conforme o [roadmap técnico](specs/ROADMAP_IMPLEMENTACAO.md).
+> Status: M0, M1 e M2 concluídos — contrato, governança, tradução PT-BR, EDA e preparação sem vazamento. Baselines e estratégia adaptativa começam no M3, conforme o [roadmap técnico](specs/ROADMAP_IMPLEMENTACAO.md).
 
 ## Visão do problema
 
@@ -155,7 +155,74 @@ O notebook [`01_EDA.ipynb`](notebooks/01_EDA.ipynb) foi reconstruído para execu
 
 Os valores por canal são associações observacionais, não efeito causal. A grande diferença de duração demonstra por que `duration`, conhecida depois do contato, deve permanecer bloqueada.
 
-> `data/processed/bank_processed.csv` é um artefato legado e provisório: contém `duration` e foi produzido por uma transformação que não está integralmente reproduzida no notebook anterior. Ele não deve ser usado para modelagem e será substituído no M2.
+O artefato legado `data/processed/bank_processed.csv` foi removido antes do M2 porque continha `duration` e não possuía pipeline integralmente reproduzível.
+
+## Preparação para modelagem — M2
+
+O pipeline [`src/data/prepare.py`](src/data/prepare.py) consome apenas a camada `interim` validada, remove duplicatas de negócio, deriva contexto pré-decisão, separa ação/target/auditoria e cria splits estratificados antes de ajustar transformações.
+
+```mermaid
+flowchart LR
+    A[Interim validada] --> B[Remover 12 duplicatas]
+    B --> C[Derivar contexto pré-decisão]
+    C --> D[Separar contexto, ação, target e auditoria]
+    D --> E[Split 70% / 15% / 15%]
+    E --> F[Fit do preprocessing somente no treino]
+    F --> G[Transform de treino, validação e teste]
+```
+
+### Contrato das features
+
+| Componente | Colunas/regra |
+|---|---|
+| Identificador | `event_id`, preservado para linhagem e bloqueado como feature |
+| Contexto categórico | `mes_contato`, `dia_semana`, `resultado_campanha_anterior` |
+| Contexto numérico | dias desde último contato, contatos anteriores, tentativas anteriores na campanha e cinco indicadores macroeconômicos |
+| Contexto binário | `nunca_contatado_anteriormente` |
+| Ação | `canal_contato`, armazenada separadamente do contexto |
+| Target | `resultado`, armazenado separadamente do contexto |
+| Somente auditoria | idade, profissão, estado civil, escolaridade, inadimplência e empréstimos |
+| Bloqueados | `duracao_contato`, `contatos_campanha_atual`, identificador, ação, target e campos de auditoria |
+
+As duas derivações temporais são:
+
+- `dias_desde_ultimo_contato=999` → valor ausente imputável mais `nunca_contatado_anteriormente=1`;
+- `tentativas_anteriores_campanha_atual = contatos_campanha_atual - 1`, evitando expor o contato corrente.
+
+### Deduplicação e splits
+
+As duplicatas são calculadas usando os 21 campos de negócio, sem `event_id`. A primeira ocorrência na ordem da fonte é preservada e os 12 IDs removidos ficam registrados em [`preparation.metadata.json`](data/processed/preparation.metadata.json).
+
+| Split | Registros | Negativos | Positivos | Taxa positiva |
+|---|---:|---:|---:|---:|
+| Treino | 28.823 | 25.576 | 3.247 | 11,265% |
+| Validação | 6.176 | 5.480 | 696 | 11,269% |
+| Teste | 6.177 | 5.481 | 696 | 11,268% |
+| Total | 41.176 | 36.537 | 4.639 | 11,266% |
+
+Os splits usam `random_seed=42`, estratificação por `resultado`, são disjuntos e ficam ordenados por `event_id` nos arquivos persistidos. Validação escolhe configuração; teste permanece reservado para a avaliação final.
+
+### Preprocessing
+
+O `ColumnTransformer` é ajustado exclusivamente nas 28.823 linhas de treino:
+
+- categóricas: imputação pela moda e one-hot encoding com categorias novas ignoradas de forma controlada;
+- numéricas: imputação pela mediana do treino e padronização com estatísticas do treino;
+- binária: passagem direta;
+- saída: 27 features em matrizes esparsas para treino, validação e teste.
+
+O artefato local `artifacts/preprocessing/context_preprocessor.joblib`, as matrizes `.npz` e a lista de features são regeneráveis e permanecem fora do Git. Os CSVs processados e seus hashes são versionáveis:
+
+| Artefato | Finalidade |
+|---|---|
+| [`train.csv`](data/processed/train.csv) | treino com contexto, ação e target separados por coluna |
+| [`validation.csv`](data/processed/validation.csv) | seleção de configuração |
+| [`test.csv`](data/processed/test.csv) | avaliação final intocada |
+| [`audit.csv`](data/processed/audit.csv) | fatias de auditoria vinculadas por `event_id` e split |
+| [`split_assignments.csv`](data/processed/split_assignments.csv) | atribuição reproduzível de cada evento |
+| [`preparation.metadata.json`](data/processed/preparation.metadata.json) | hashes, versões, IDs removidos, features, shapes e prevalência |
+
+O notebook [`02_preparation.ipynb`](notebooks/02_preparation.ipynb) demonstra o processo sem duplicar lógica. Testes automatizados comprovam que `duration`, campanha bruta, ação, target, identificador e campos de auditoria não entram no contexto.
 
 ## Critérios de sucesso
 
@@ -231,13 +298,23 @@ datathon-7mlet-grupo-80/
 │   ├── raw/
 │   │   └── bank-additional-full.csv
 │   └── processed/
+│       ├── audit.csv
+│       ├── preparation.metadata.json
+│       ├── split_assignments.csv
+│       ├── test.csv
+│       ├── train.csv
+│       └── validation.csv
 ├── notebooks/
-│   └── 01_EDA.ipynb
+│   ├── 01_EDA.ipynb
+│   └── 02_preparation.ipynb
 ├── src/
-│   └── data/
-│       ├── contracts.py
-│       ├── translate.py
-│       └── validate.py
+│   ├── data/
+│   │   ├── contracts.py
+│   │   ├── prepare.py
+│   │   ├── translate.py
+│   │   └── validate.py
+│   └── features/
+│       └── build_features.py
 ├── specs/
 │   ├── fiap-postech-mlet-datathon.pdf
 │   └── ROADMAP_IMPLEMENTACAO.md
@@ -277,7 +354,13 @@ Gere novamente a camada canônica PT-BR:
 python -m src.data.translate --config configs/data.yaml
 ```
 
-Execute os testes de dados:
+Gere os splits e o preprocessing do M2:
+
+```powershell
+python -m src.data.prepare --config configs/data.yaml
+```
+
+Execute todos os testes:
 
 ```powershell
 python -m pytest -q
@@ -289,7 +372,13 @@ Execute o notebook de análise:
 jupyter notebook notebooks/01_EDA.ipynb
 ```
 
-Os comandos de preparação, treinamento, avaliação, MLflow e API serão adicionados nos marcos seguintes sem alterar os contratos aprovados de forma silenciosa.
+Execute o notebook de preparação:
+
+```powershell
+jupyter notebook notebooks/02_preparation.ipynb
+```
+
+Os comandos de treinamento, avaliação, MLflow e API serão adicionados nos marcos seguintes sem alterar os contratos aprovados de forma silenciosa.
 
 ## Checklist M0
 
@@ -317,4 +406,21 @@ Os comandos de preparação, treinamento, avaliação, MLflow e API serão adici
 - [x] notebook de EDA executável do kernel limpo;
 - [x] 12 duplicatas e categorias `desconhecido` mensuradas;
 - [x] vazamento de `duration` demonstrado e documentado;
+- [x] testes unitários e de integração aprovados.
+
+## Checklist M2
+
+- [x] artefato processado legado e com vazamento removido;
+- [x] 12 duplicatas removidas mantendo a primeira ocorrência;
+- [x] IDs removidos registrados para rastreabilidade;
+- [x] sentinela 999 transformada em indicador e ausência imputável;
+- [x] campanha bruta substituída por tentativas anteriores à decisão;
+- [x] contexto, ação, target, identificador e auditoria separados;
+- [x] splits 70%/15%/15% estratificados, disjuntos e determinísticos;
+- [x] preprocessing ajustado somente no treino;
+- [x] validação e teste recebem apenas `transform`;
+- [x] `duration` e demais campos bloqueados ausentes do contexto;
+- [x] 27 nomes de features e shapes registrados;
+- [x] hashes dos outputs e versões das dependências registrados;
+- [x] notebook de preparação executável do kernel limpo;
 - [x] testes unitários e de integração aprovados.

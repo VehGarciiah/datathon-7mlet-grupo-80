@@ -1,6 +1,6 @@
 # Configuração operacional do pipeline de tradução e validação do M1.
 # A origem factual e o hash permanecem centralizados no contrato do experimento.
-schema_version: "1.0.0"
+schema_version: "1.1.0"
 experiment_config_path: configs/experiment.yaml
 
 interim:
@@ -15,6 +15,7 @@ quality:
   expected_source_columns: 21
   expected_interim_columns: 22
   expected_duplicate_business_rows: 12
+  expected_rows_after_deduplication: 41176
   expected_target_distribution:
     0: 36548
     1: 4640
@@ -26,3 +27,32 @@ translation:
   physical_column_style: snake_case_without_accents
   preserve_raw_file: true
   preserve_business_rows_before_m2: true
+
+processed:
+  train_path: data/processed/train.csv
+  validation_path: data/processed/validation.csv
+  test_path: data/processed/test.csv
+  audit_path: data/processed/audit.csv
+  split_assignments_path: data/processed/split_assignments.csv
+  metadata_path: data/processed/preparation.metadata.json
+  delimiter: ";"
+  encoding: utf-8
+
+split:
+  train_size: 0.70
+  validation_size: 0.15
+  test_size: 0.15
+  random_seed: 42
+  stratify_column: resultado
+  sort_output_by: event_id
+
+preprocessing:
+  artifact_path: artifacts/preprocessing/context_preprocessor.joblib
+  feature_names_path: artifacts/preprocessing/feature_names.json
+  train_matrix_path: artifacts/preprocessing/train_features.npz
+  validation_matrix_path: artifacts/preprocessing/validation_features.npz
+  test_matrix_path: artifacts/preprocessing/test_features.npz
+  fit_split: train
+  numeric_imputation: median
+  numeric_scaling: standard
+  categorical_encoding: one_hot_ignore_unknown

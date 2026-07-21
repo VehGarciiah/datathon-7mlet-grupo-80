@@ -3,6 +3,8 @@ numpy
 matplotlib
 seaborn
 scikit-learn
+scipy
+joblib
 jupyter
 PyYAML
 pytest

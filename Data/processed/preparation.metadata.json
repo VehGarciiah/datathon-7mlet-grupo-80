@@ -1,0 +1,171 @@
+{
+  "contracts": {
+    "action_column": "canal_contato",
+    "audit_only_columns": [
+      "idade",
+      "profissao",
+      "estado_civil",
+      "escolaridade",
+      "inadimplencia",
+      "financiamento_habitacional",
+      "emprestimo_pessoal"
+    ],
+    "blocked_direct_columns": [
+      "duracao_contato",
+      "contatos_campanha_atual"
+    ],
+    "context_columns": [
+      "mes_contato",
+      "dia_semana",
+      "resultado_campanha_anterior",
+      "dias_desde_ultimo_contato",
+      "contatos_campanhas_anteriores",
+      "tentativas_anteriores_campanha_atual",
+      "taxa_variacao_emprego",
+      "indice_precos_consumidor",
+      "indice_confianca_consumidor",
+      "euribor_3_meses",
+      "numero_empregados",
+      "nunca_contatado_anteriormente"
+    ],
+    "identifier_column": "event_id",
+    "target_column": "resultado"
+  },
+  "deduplication": {
+    "business_rows_removed": 12,
+    "keep": "first_by_source_order",
+    "remaining_rows": 41176,
+    "removed_event_ids": [
+      1267,
+      12262,
+      14235,
+      16957,
+      18466,
+      20217,
+      20535,
+      25218,
+      28478,
+      32517,
+      36952,
+      38282
+    ]
+  },
+  "input": {
+    "path": "data/interim/bank_marketing_ptbr.csv",
+    "row_count": 41188,
+    "sha256": "0c073203818b48978ee6e1c9742cbe8b5fa0a6b531de78bf0530a0cf6328fa7c"
+  },
+  "outputs": {
+    "audit": {
+      "path": "data/processed/audit.csv",
+      "sha256": "d3fa62dfb1137cfc99a60ceeda1cf76277b6f4ce9794f011bbc36df47f46d618"
+    },
+    "split_assignments": {
+      "path": "data/processed/split_assignments.csv",
+      "sha256": "1e5efc0fad47f0ec85d082e0006b7901b6d2b7f7861ad8b556b495ac2b270115"
+    },
+    "test": {
+      "path": "data/processed/test.csv",
+      "sha256": "0ab45b0abdf23104f58f43d490c93173d855786397523fefc68f670d3ab33d10"
+    },
+    "train": {
+      "path": "data/processed/train.csv",
+      "sha256": "ef4e3c08f020a9abe3168f7ff4bd63dee3c9a4fe2ea4a99ebb23a59cc89e3127"
+    },
+    "validation": {
+      "path": "data/processed/validation.csv",
+      "sha256": "fd3da70c8a13933bf33709739c6f09faac7b9154323a0983e2b0e93d5fbbedee"
+    }
+  },
+  "pipeline_schema_version": "1.0.0",
+  "preprocessing": {
+    "artifact_path": "artifacts/preprocessing/context_preprocessor.joblib",
+    "artifact_sha256": "e387c08103cf8823871509d04dcb6c8691dc46429470eabe047eca1601bb059f",
+    "feature_count": 27,
+    "feature_names": [
+      "mes_contato_abr",
+      "mes_contato_ago",
+      "mes_contato_dez",
+      "mes_contato_jul",
+      "mes_contato_jun",
+      "mes_contato_mai",
+      "mes_contato_mar",
+      "mes_contato_nov",
+      "mes_contato_out",
+      "mes_contato_set",
+      "dia_semana_qua",
+      "dia_semana_qui",
+      "dia_semana_seg",
+      "dia_semana_sex",
+      "dia_semana_ter",
+      "resultado_campanha_anterior_fracasso",
+      "resultado_campanha_anterior_inexistente",
+      "resultado_campanha_anterior_sucesso",
+      "dias_desde_ultimo_contato",
+      "contatos_campanhas_anteriores",
+      "tentativas_anteriores_campanha_atual",
+      "taxa_variacao_emprego",
+      "indice_precos_consumidor",
+      "indice_confianca_consumidor",
+      "euribor_3_meses",
+      "numero_empregados",
+      "nunca_contatado_anteriormente"
+    ],
+    "fit_split": "train",
+    "matrix_shapes": {
+      "test": [
+        6177,
+        27
+      ],
+      "train": [
+        28823,
+        27
+      ],
+      "validation": [
+        6176,
+        27
+      ]
+    },
+    "versions": {
+      "joblib": "1.5.3",
+      "pandas": "3.0.1",
+      "scikit_learn": "1.8.0",
+      "scipy": "1.17.1"
+    }
+  },
+  "split": {
+    "proportions": {
+      "test": 0.15,
+      "train": 0.7,
+      "validation": 0.15
+    },
+    "random_seed": 42,
+    "stratified_by": "resultado",
+    "summaries": {
+      "test": {
+        "positive_rate": 0.11267605633802817,
+        "row_count": 6177,
+        "target_distribution": {
+          "0": 5481,
+          "1": 696
+        }
+      },
+      "train": {
+        "positive_rate": 0.1126530895465427,
+        "row_count": 28823,
+        "target_distribution": {
+          "0": 25576,
+          "1": 3247
+        }
+      },
+      "validation": {
+        "positive_rate": 0.11269430051813471,
+        "row_count": 6176,
+        "target_distribution": {
+          "0": 5480,
+          "1": 696
+        }
+      }
+    }
+  }
+}
