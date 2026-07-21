@@ -1,0 +1,25 @@
+# Ambientes e segredos locais
+.venv/
+.env
+.env.*
+!.env.example
+
+# Python, testes e notebooks
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+.coverage
+htmlcov/
+
+# IDE e sistema operacional
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Artefatos operacionais futuros
+artifacts/
+mlruns/
+mlflow.db
+*.sqlite3

@@ -1,0 +1,279 @@
+# Contrato versionado da decisão do MVP educacional.
+# As chaves permanecem em inglês; comentários e textos explicativos usam PT-BR.
+schema_version: "1.0.0"
+contract_status: approved_for_educational_mvp
+last_reviewed_at: "2026-07-20"
+
+project:
+  id: datathon-7mlet-grupo-80
+  name: Datathon 7MLET - Grupo 80
+  environment: educational
+  purpose: >-
+    Apoiar a escolha do próximo canal de contato entre ações elegíveis e
+    aprender com a conversão observada, exclusivamente para demonstração
+    acadêmica de Machine Learning Engineering.
+  out_of_scope:
+    - Recomendar produtos, preços, crédito ou condições financeiras.
+    - Tomar decisão financeira sensível sem revisão humana.
+    - Executar contato automaticamente.
+    - Inferir efeito causal do canal a partir desta base observacional.
+
+dataset:
+  name: Bank Marketing
+  kaggle:
+    ref: henriqueyamahata/bank-marketing
+    url: https://www.kaggle.com/datasets/henriqueyamahata/bank-marketing
+    version: 1
+    published_at: "2018-06-06T15:19:35.950Z"
+    license_label: Other (specified in description)
+  original_source:
+    provider: UCI Machine Learning Repository
+    dataset_id: 222
+    doi: https://doi.org/10.24432/C5K306
+    url: https://archive.ics.uci.edu/dataset/222/bank+marketing
+    license: CC BY 4.0
+    citation: >-
+      Moro, S., Rita, P., & Cortez, P. (2014). Bank Marketing [Dataset].
+      UCI Machine Learning Repository. https://doi.org/10.24432/C5K306.
+  local_snapshot:
+    path: data/raw/bank-additional-full.csv
+    registered_at: "2026-07-20"
+    sha256: 74adfc578bf77a7ff4bb1ba4a9f8709d9e3c6907342959c2c8416847e0afb4d8
+    size_bytes: 5834924
+    row_count: 41188
+    column_count: 21
+    delimiter: ";"
+    encoding: utf-8
+    immutability: required
+
+decision:
+  id: next_best_contact_channel
+  name_ptbr: Proximo melhor canal de contato
+  decision_unit: one_eligible_contact_opportunity
+  description: >-
+    Selecionar um canal entre as ações elegíveis para um registro de cliente.
+    O resultado é um próximo passo de contato, não uma recomendação de produto.
+  action_source_column: contact
+  actions:
+    - id: cellular
+      source_value: cellular
+      canonical_value_ptbr: celular
+      display_name_ptbr: Celular
+    - id: telephone
+      source_value: telephone
+      canonical_value_ptbr: telefone
+      display_name_ptbr: Telefone
+  no_eligible_action_behavior: abstain_and_request_human_review
+
+eligibility:
+  production_rules:
+    - Existe finalidade e base legal aprovadas para o contato.
+    - O cliente não está em lista de bloqueio ou opt-out.
+    - Existe pelo menos um canal permitido e disponível.
+    - O payload passou pela validação de schema e qualidade.
+    - Limites de frequência e horário definidos pelo negócio foram respeitados.
+  offline_assumption: >-
+    A base pública não contém consentimento, opt-out, identificador persistente ou
+    regras completas de elegibilidade. No replay acadêmico, cada linha é tratada
+    apenas como oportunidade histórica observada, nunca como autorização de contato.
+  required_online_fields:
+    - contact_authorized
+    - do_not_contact
+    - eligible_actions
+  unresolved_before_production:
+    - Definir limites de frequência e horários por canal com Jurídico/Compliance.
+    - Definir tratamento de menores e clientes vulneráveis.
+    - Aprovar texto das mensagens e mecanismo de opt-out.
+
+reward:
+  id: term_deposit_conversion
+  type: binary
+  source_target_column: y
+  positive_source_value: "yes"
+  negative_source_value: "no"
+  canonical_positive_value: 1
+  canonical_negative_value: 0
+  historical_observation: >-
+    O target representa se houve assinatura de depósito a prazo no registro da
+    campanha. Ele funciona como proxy de recompensa e não como efeito causal do canal.
+  online_attribution_window:
+    value: 7
+    unit: days
+    status: assumption_for_mvp
+    rationale: >-
+      Janela inicial para tornar o contrato demonstrável; deve ser validada pelo
+      negócio antes de qualquer uso real.
+  update_rules:
+    - Atualizar somente a ação vinculada ao recommendation_id original.
+    - Aceitar no máximo um feedback terminal por recomendação.
+    - Não usar feedback recebido após a janela para aprendizado online automático.
+    - Preservar feedback tardio apenas para auditoria, conforme retenção.
+
+features:
+  # Contexto disponível antes da decisão e permitido no MVP da política.
+  policy_context_source_columns:
+    - month
+    - day_of_week
+    - pdays
+    - previous
+    - poutcome
+    - emp.var.rate
+    - cons.price.idx
+    - cons.conf.idx
+    - euribor3m
+    - nr.employed
+  derived_pre_decision_features:
+    - never_contacted_before
+    - previous_attempts_current_campaign
+  derivation_notes:
+    never_contacted_before: pdays igual a 999 na fonte.
+    previous_attempts_current_campaign: >-
+      campaign menos um, pois a coluna da fonte inclui o contato atual. Validar
+      valor mínimo zero e não usar campaign bruto como contexto da ação atual.
+  audit_only_source_columns:
+    - age
+    - job
+    - marital
+    - education
+    - default
+    - housing
+    - loan
+  audit_only_reason: >-
+    Atributos demográficos, socioeconômicos ou financeiros podem atuar como proxies.
+    Permanecem disponíveis somente para EDA, avaliação de disparidade e auditoria
+    até que necessidade, proporcionalidade e aprovação sejam demonstradas.
+  blocked_source_columns:
+    duration: Informacao pos-contato e vazamento temporal explicito.
+    campaign: >-
+      Inclui o contato atual; bloquear o uso direto e permitir somente a derivacao
+      pre-decisao previous_attempts_current_campaign.
+    contact: Acao escolhida; deve ser tratada separadamente do contexto.
+    y: Recompensa observada; nunca e feature.
+  blocked_technical_fields:
+    - event_id
+    - recommendation_id
+
+policies:
+  baseline:
+    id: best_historical_action
+    rule: Escolher o canal com maior conversao calculada somente no treino.
+    fallback: first_eligible_action_in_stable_order
+  adaptive:
+    id: segmented_thompson_sampling
+    family: thompson_sampling
+    reward_distribution: beta_bernoulli
+    prior:
+      alpha: 1.0
+      beta: 1.0
+    candidate_segments:
+      - poutcome
+      - never_contacted_before
+    minimum_support_per_segment_action: 100
+    sparse_segment_fallback: global_action_posterior
+    random_seed: 42
+  rollback_policy: best_historical_action
+
+success_criteria:
+  business_primary_metric: conversion_rate
+  policy_primary_metric: mean_reward
+  required_comparisons:
+    - absolute_lift_vs_fixed_baseline
+    - relative_lift_vs_fixed_baseline
+    - cumulative_reward
+    - replay_coverage
+    - action_distribution
+  uncertainty:
+    confidence_level: 0.95
+    minimum_policy_seeds: 30
+    method: bootstrap
+  approval_gate: >-
+    A política adaptativa só pode ser marcada como candidata se superar o baseline
+    no protocolo pré-registrado, sem vazamento, e se limites e cobertura forem exibidos.
+
+governance:
+  purpose_limitation: educational_research_only
+  legal_basis:
+    current_dataset: public_research_dataset_without_direct_identifiers_under_source_license
+    production_status: not_defined
+    production_requirement: >-
+      Jurídico/Compliance deve aprovar finalidade, base legal, transparência e
+      direitos do titular antes do uso de qualquer dado real.
+  data_minimization:
+    collect_direct_identifiers: false
+    log_full_request_payload: false
+    use_audit_only_fields_for_action: false
+    prohibited_fields:
+      - income
+      - wealth
+      - gender
+      - race
+      - private_commercial_rules
+  retention:
+    public_dataset: Enquanto o projeto acadêmico estiver ativo e a licença permitir.
+    recommendation_events_days: 90
+    feedback_events_days: 90
+    technical_logs_days: 30
+    deletion_method: Exclusao dos registros e artefatos derivados no ambiente de execucao.
+    review_frequency_days: 30
+  human_in_the_loop:
+    required: true
+    scope: >-
+      Um responsável humano aprova elegibilidade, uso da política, promoção de versão,
+      rollback e qualquer decisão com possível impacto sensível.
+  owners:
+    business_accountable:
+      id: grupo-80
+      responsibility: Aprovar objetivo, metrica e interpretacao de negocio.
+    technical_accountable:
+      id: grupo-80
+      responsibility: Garantir reproducibilidade, testes, seguranca e operacao.
+    model_risk_approver:
+      id: grupo-80-peer-review
+      responsibility: >-
+        Revisar dados, vazamento, metricas, disparidades e limites; quando houver mais
+        de um integrante, a aprovacao deve vir de pessoa diferente do autor da mudanca.
+  approval:
+    required_artifacts:
+      - dataset_hash
+      - experiment_config
+      - evaluation_report
+      - golden_set_review
+      - mlflow_run_id
+      - rollback_evidence
+    production_automation_allowed: false
+
+risk_controls:
+  - id: R01
+    risk: Confundir canal com oferta ou produto.
+    control: Contrato, README e API usam explicitamente proximo melhor canal.
+  - id: R02
+    risk: Vazamento por duration ou campaign bruto.
+    control: Denylist, derivacao pre-decisao e teste automatizado futuro.
+  - id: R03
+    risk: Interpretar associacao historica como causalidade.
+    control: Replay com cobertura e limitacao observacional junto as metricas.
+  - id: R04
+    risk: Discriminacao por atributos proxy.
+    control: Campos de risco somente para auditoria e gate humano.
+  - id: R05
+    risk: Contato sem autorizacao ou acima de limites.
+    control: Abstencao quando elegibilidade nao estiver comprovada.
+  - id: R06
+    risk: Feedback duplicado ou atribuido a acao incorreta.
+    control: recommendation_id idempotente e validacao de vinculo.
+  - id: R07
+    risk: Politica adaptativa degradar conversao.
+    control: Monitoramento, limite de exploracao e rollback para baseline aprovado.
+
+m0_acceptance:
+  decision_defined: true
+  actions_defined: true
+  reward_defined: true
+  eligibility_defined: true
+  source_and_hash_registered: true
+  leakage_fields_blocked: true
+  governance_and_retention_defined: true
+  human_approval_and_rollback_defined: true
+  remaining_blockers:
+    - Atribuir nomes individuais aos papeis antes da primeira promocao de modelo.
+    - Validar janela de recompensa e regras de elegibilidade antes de uso real.

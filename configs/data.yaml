@@ -1,0 +1,28 @@
+# Configuração operacional do pipeline de tradução e validação do M1.
+# A origem factual e o hash permanecem centralizados no contrato do experimento.
+schema_version: "1.0.0"
+experiment_config_path: configs/experiment.yaml
+
+interim:
+  path: data/interim/bank_marketing_ptbr.csv
+  metadata_path: data/interim/bank_marketing_ptbr.metadata.json
+  delimiter: ";"
+  encoding: utf-8
+  include_event_id: true
+
+quality:
+  expected_rows: 41188
+  expected_source_columns: 21
+  expected_interim_columns: 22
+  expected_duplicate_business_rows: 12
+  expected_target_distribution:
+    0: 36548
+    1: 4640
+  allow_null_cells: false
+  allow_unmapped_categories: false
+
+translation:
+  language: pt-BR
+  physical_column_style: snake_case_without_accents
+  preserve_raw_file: true
+  preserve_business_rows_before_m2: true

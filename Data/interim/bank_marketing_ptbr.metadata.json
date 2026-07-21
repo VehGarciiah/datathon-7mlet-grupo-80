@@ -1,0 +1,53 @@
+{
+  "interim": {
+    "path": "data/interim/bank_marketing_ptbr.csv",
+    "sha256": "0c073203818b48978ee6e1c9742cbe8b5fa0a6b531de78bf0530a0cf6328fa7c",
+    "validation": {
+      "column_count": 22,
+      "duplicate_business_rows": 12,
+      "null_cell_count": 0,
+      "row_count": 41188,
+      "target_distribution": {
+        "0": 36548,
+        "1": 4640
+      },
+      "unknown_counts": {
+        "emprestimo_pessoal": 990,
+        "escolaridade": 1731,
+        "estado_civil": 80,
+        "financiamento_habitacional": 990,
+        "inadimplencia": 8597,
+        "profissao": 330
+      }
+    }
+  },
+  "pipeline_schema_version": "1.0.0",
+  "source": {
+    "path": "data/raw/bank-additional-full.csv",
+    "sha256": "74adfc578bf77a7ff4bb1ba4a9f8709d9e3c6907342959c2c8416847e0afb4d8",
+    "validation": {
+      "column_count": 21,
+      "duplicate_business_rows": 12,
+      "null_cell_count": 0,
+      "row_count": 41188,
+      "target_distribution": {
+        "no": 36548,
+        "yes": 4640
+      },
+      "unknown_counts": {
+        "default": 8597,
+        "education": 1731,
+        "housing": 990,
+        "job": 330,
+        "loan": 990,
+        "marital": 80
+      }
+    }
+  },
+  "translation": {
+    "business_rows_removed": 0,
+    "event_id_added": true,
+    "language": "pt-BR",
+    "mapped_source_columns": 21
+  }
+}
