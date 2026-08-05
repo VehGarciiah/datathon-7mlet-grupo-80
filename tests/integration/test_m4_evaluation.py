@@ -10,7 +10,7 @@ from src.evaluation.replay import load_replay_config, run_m4_evaluation
 from src.policies.thompson_sampling import SegmentedThompsonSamplingPolicy
 
 
-def test_m4_evaluation_is_reproducible_and_keeps_uncertain_policy_rejected() -> None:
+def test_m4_evaluation_is_reproducible_and_promotes_supported_candidate() -> None:
     """Executa 30 seeds, valida artefatos e respeita o gate estatístico."""
     report = run_m4_evaluation("configs/policy.yaml", enable_tracking=False)
     config = load_replay_config("configs/policy.yaml")
@@ -19,12 +19,16 @@ def test_m4_evaluation_is_reproducible_and_keeps_uncertain_policy_rejected() -> 
     assert report["evaluation_protocol"]["regret"]["value"] is None
     assert report["policy"]["historical_reward_warm_start"] is False
     assert set(report["policy"]["segment_columns"]) == {
+        "mes_contato",
         "resultado_campanha_anterior",
-        "nunca_contatado_anteriormente",
     }
     assert report["splits"]["test"]["adaptive_policy"]["mean_reward"]["mean"] > 0
-    assert report["selection"]["candidate_gate_passed"] is False
-    assert report["selection"]["status"] == "rejected"
+    assert report["selection"]["candidate_gate_passed"] is True
+    assert report["selection"]["status"] == "candidate"
+    for split_name in ("validation", "test"):
+        lift = report["splits"][split_name]["adaptive_policy"]["lift_vs_fixed"]
+        assert lift["absolute_mean"] > 0
+        assert lift["absolute_bootstrap_confidence_interval"]["lower"] > 0
 
     saved_report = json.loads(config.evaluation_path.read_text(encoding="utf-8"))
     assert saved_report == report

@@ -21,7 +21,9 @@ def training_frame() -> pd.DataFrame:
     )
 
 
-def test_policy_selects_best_training_action_and_stable_fallback(training_frame: pd.DataFrame) -> None:
+def test_policy_selects_best_training_action_and_stable_fallback(
+    training_frame: pd.DataFrame,
+) -> None:
     """Congela celular e usa telefone apenas se celular não for elegível."""
     policy = BestHistoricalActionPolicy(["celular", "telefone"]).fit(training_frame)
 

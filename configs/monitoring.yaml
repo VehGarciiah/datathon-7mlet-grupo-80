@@ -34,6 +34,18 @@ policy:
     trigger_when_mean_reward_below: 0.14109799897383274
     action: pause_adaptive_demo_and_review_eligibility_logging_and_data_quality
   rationale: Limite deriva do IC95% factual do baseline M4 e não representa causalidade.
+  candidate:
+    policy_id: segmented_thompson_sampling
+    policy_version: "1.1.0"
+    status: candidate_pending_human_approval
+    segment_columns: [mes_contato, resultado_campanha_anterior]
+    test_mean_reward: 0.17941284788137762
+    test_replay_coverage: 0.4110679402082997
+    test_absolute_lift: 0.02754009262227036
+    test_lift_bootstrap_confidence_interval_95:
+      lower: 0.02532505672975407
+      upper: 0.029916597042901564
+    automatic_promotion_allowed: false
 
 service:
   latency_p95_threshold_seconds: null

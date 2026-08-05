@@ -851,11 +851,11 @@ flowchart TD
 
 O projeto só está pronto quando todos os itens abaixo forem verdadeiros:
 
-- [ ] A base bruta permanece byte a byte inalterada e tem hash registrado.
-- [ ] A tradução PT-BR é completa, versionada e testada.
-- [ ] O pipeline é executável do zero em ambiente limpo.
-- [ ] `duracao_contato` não entra em nenhuma decisão ou treino.
-- [ ] Preprocessing é ajustado apenas no treino.
+- [x] A base bruta permanece byte a byte inalterada e tem hash registrado.
+- [x] A tradução PT-BR é completa, versionada e testada.
+- [x] O pipeline é executável do zero em ambiente limpo.
+- [x] `duracao_contato` não entra em nenhuma decisão ou treino.
+- [x] Preprocessing é ajustado apenas no treino.
 - [x] Baseline fixo e política adaptativa usam o mesmo protocolo.
 - [x] Thompson Sampling tem prior, fallback, exploração e atualização documentados.
 - [x] Resultado principal inclui lift, intervalo de confiança, cobertura e seeds.
@@ -864,8 +864,8 @@ O projeto só está pronto quando todos os itens abaixo forem verdadeiros:
 - [x] Golden set contém cinco casos e passa pela API.
 - [x] Feedback é idempotente e auditável.
 - [x] Testes de dados, política e API passam.
-- [ ] README consolida todos os itens obrigatórios do PDF.
-- [ ] Arquitetura AWS explica serving, estado, feedback, treino, segurança e monitoramento.
+- [ ] README consolida todos os itens obrigatórios do PDF, pendente apenas o link do vídeo.
+- [x] Arquitetura AWS explica serving, estado, feedback, treino, segurança e monitoramento.
 - [ ] Vídeo demonstra recomendação funcionando em até cinco minutos.
 - [ ] Uma pessoa que não participou do desenvolvimento consegue reproduzir a entrega.
 
@@ -888,4 +888,4 @@ No Windows PowerShell, documentar também a ativação de `.venv` e evitar assum
 
 ## 14. Próximo passo imediato
 
-Com M0–M5 concluídos, executar M6 mantendo `best_historical_action` como política aprovada: consolidar arquitetura AWS, limites de observabilidade, segurança, fairness e instruções operacionais no README. O modo `adaptive_demo` permanece isolado; promoção futura exige nova evidência cujo lift e limite inferior do intervalo sejam positivos no protocolo pré-registrado.
+Com M0–M6 concluídos e a política `1.1.0` aprovada pelo gate técnico, executar M7: registrar responsáveis individuais, obter revisão humana independente, gravar e publicar o vídeo de até cinco minutos, validar a reprodução em clone limpo e criar a tag final. `best_historical_action` permanece como política aprovada até a decisão humana; `adaptive_demo` continua isolado e não promove automaticamente a candidata.

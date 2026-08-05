@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
-
 SOURCE_COLUMNS = [
     "age",
     "job",
@@ -117,7 +116,9 @@ CATEGORY_MAPPINGS = {
 }
 
 SOURCE_CATEGORICAL_COLUMNS = list(CATEGORY_MAPPINGS)
-SOURCE_NUMERIC_COLUMNS = [column for column in SOURCE_COLUMNS if column not in SOURCE_CATEGORICAL_COLUMNS]
+SOURCE_NUMERIC_COLUMNS = [
+    column for column in SOURCE_COLUMNS if column not in SOURCE_CATEGORICAL_COLUMNS
+]
 TRANSLATED_COLUMNS = ["event_id", *COLUMN_MAPPING.values()]
 TRANSLATED_BUSINESS_COLUMNS = [column for column in TRANSLATED_COLUMNS if column != "event_id"]
 TRANSLATED_CATEGORY_MAPPINGS = {

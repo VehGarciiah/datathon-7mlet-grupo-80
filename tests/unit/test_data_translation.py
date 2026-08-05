@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from src.data.contracts import DataContractError, TRANSLATED_COLUMNS
+from src.data.contracts import TRANSLATED_COLUMNS, DataContractError
 from src.data.translate import (
     load_pipeline_config,
     load_raw_dataset,

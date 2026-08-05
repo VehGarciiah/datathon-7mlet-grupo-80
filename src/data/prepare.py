@@ -22,7 +22,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from src.data.contracts import DataContractError
-from src.data.translate import compute_sha256, load_pipeline_config
+from src.data.translate import compute_sha256
 from src.data.validate import validate_translated_dataset
 from src.features.build_features import (
     ACTION_COLUMN,
@@ -259,6 +259,7 @@ def _write_json_atomically(content: dict[str, Any] | list[str], path: Path) -> N
     temporary_path.write_text(
         json.dumps(content, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     temporary_path.replace(path)
 
@@ -313,10 +314,7 @@ def build_processed_datasets(
         _write_csv_atomically(splits[name], path, config)
 
     assignments = pd.concat(
-        [
-            frame[[IDENTIFIER_COLUMN]].assign(split=name)
-            for name, frame in splits.items()
-        ],
+        [frame[[IDENTIFIER_COLUMN]].assign(split=name) for name, frame in splits.items()],
         ignore_index=True,
     ).sort_values(IDENTIFIER_COLUMN)
     _write_csv_atomically(assignments, config.assignments_path, config)
@@ -385,8 +383,7 @@ def build_processed_datasets(
             "feature_count": len(feature_names),
             "feature_names": feature_names,
             "matrix_shapes": {
-                name: [int(value) for value in matrix.shape]
-                for name, matrix in matrices.items()
+                name: [int(value) for value in matrix.shape] for name, matrix in matrices.items()
             },
             "artifact_path": _relative_path(config.preprocessor_path, config.project_root),
             "artifact_sha256": compute_sha256(config.preprocessor_path),

@@ -89,8 +89,7 @@ class SegmentedThompsonSamplingPolicy:
     def _new_action_posteriors(self) -> dict[str, BetaPosterior]:
         """Cria um conjunto independente de priors para todos os braços."""
         return {
-            action: BetaPosterior(self.prior_alpha, self.prior_beta)
-            for action in self.action_order
+            action: BetaPosterior(self.prior_alpha, self.prior_beta) for action in self.action_order
         }
 
     def _segment_id_from_context(self, context: dict) -> str:
@@ -154,9 +153,7 @@ class SegmentedThompsonSamplingPolicy:
         self.is_fitted = True
         return self
 
-    def _posterior_source(
-        self, context: dict
-    ) -> tuple[str, dict[str, BetaPosterior], bool]:
+    def _posterior_source(self, context: dict) -> tuple[str, dict[str, BetaPosterior], bool]:
         """Seleciona posterior segmentado ou fallback global de forma auditável."""
         segment_id = self._segment_id_from_context(context)
         if segment_id in self.segment_posteriors:
@@ -261,14 +258,10 @@ class SegmentedThompsonSamplingPolicy:
             "random_seed": self.random_seed,
             "rng_state": self.rng.bit_generator.state,
             "global_posteriors": {
-                action: asdict(posterior)
-                for action, posterior in self.global_posteriors.items()
+                action: asdict(posterior) for action, posterior in self.global_posteriors.items()
             },
             "segment_posteriors": {
-                segment_id: {
-                    action: asdict(posterior)
-                    for action, posterior in posteriors.items()
-                }
+                segment_id: {action: asdict(posterior) for action, posterior in posteriors.items()}
                 for segment_id, posteriors in self.segment_posteriors.items()
             },
             "segment_support": self.segment_support,
@@ -290,9 +283,7 @@ class SegmentedThompsonSamplingPolicy:
             random_seed=int(content["random_seed"]),
             policy_id=content["policy_id"],
             version=content["policy_version"],
-            historical_reward_warm_start=bool(
-                content["historical_reward_warm_start"]
-            ),
+            historical_reward_warm_start=bool(content["historical_reward_warm_start"]),
         )
         policy.global_posteriors = {
             action: BetaPosterior(**parameters)
@@ -300,8 +291,7 @@ class SegmentedThompsonSamplingPolicy:
         }
         policy.segment_posteriors = {
             segment_id: {
-                action: BetaPosterior(**parameters)
-                for action, parameters in posteriors.items()
+                action: BetaPosterior(**parameters) for action, parameters in posteriors.items()
             }
             for segment_id, posteriors in content["segment_posteriors"].items()
         }
@@ -325,6 +315,7 @@ class SegmentedThompsonSamplingPolicy:
             with tempfile.NamedTemporaryFile(
                 mode="w",
                 encoding="utf-8",
+                newline="\n",
                 prefix=f".{destination.name}.",
                 suffix=".tmp",
                 dir=destination.parent,

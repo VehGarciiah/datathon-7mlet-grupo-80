@@ -46,6 +46,7 @@ class ReplayConfig:
     prior_beta: float
     segment_columns: list[str]
     minimum_support_per_action: int
+    segment_selection_basis: str
     historical_reward_warm_start: bool
     state_artifact_path: Path
     evaluation_splits: list[str]
@@ -120,9 +121,8 @@ def load_replay_config(config_path: str | Path = "configs/policy.yaml") -> Repla
         prior_beta=float(policy["prior"]["beta"]),
         segment_columns=segment_columns,
         minimum_support_per_action=int(segmentation["minimum_support_per_action"]),
-        historical_reward_warm_start=bool(
-            initialization["historical_reward_warm_start"]
-        ),
+        segment_selection_basis=str(segmentation["selection_basis"]),
+        historical_reward_warm_start=bool(initialization["historical_reward_warm_start"]),
         state_artifact_path=project_root / policy["state_artifact_path"],
         evaluation_splits=evaluation_splits,
         stable_order_column=replay["stable_order_column"],
@@ -132,9 +132,7 @@ def load_replay_config(config_path: str | Path = "configs/policy.yaml") -> Repla
         confidence_level=float(bootstrap["confidence_level"]),
         bootstrap_random_seed=int(bootstrap["random_seed"]),
         require_positive_mean_lift=bool(gate["require_positive_mean_lift"]),
-        require_positive_lift_ci_lower=bool(
-            gate["require_positive_lift_ci_lower"]
-        ),
+        require_positive_lift_ci_lower=bool(gate["require_positive_lift_ci_lower"]),
         evaluation_path=project_root / reports["evaluation_path"],
         seed_results_path=project_root / reports["seed_results_path"],
         curves_path=project_root / reports["curves_path"],
@@ -275,9 +273,7 @@ def _aggregate_seed_results(
     baseline_reward = float(baseline_summary["mean_reward"])
     absolute_lifts = mean_rewards - baseline_reward
     relative_lifts = (
-        absolute_lifts / baseline_reward
-        if baseline_reward > 0
-        else np.zeros_like(absolute_lifts)
+        absolute_lifts / baseline_reward if baseline_reward > 0 else np.zeros_like(absolute_lifts)
     )
     ci_seed = config.bootstrap_random_seed + split_offset
 
@@ -359,16 +355,10 @@ def _build_curve_frame(
         [trace["cumulative_reward"].to_numpy(dtype=float) for trace in adaptive_traces]
     )
     accepted = np.vstack(
-        [
-            trace["cumulative_accepted_events"].to_numpy(dtype=float)
-            for trace in adaptive_traces
-        ]
+        [trace["cumulative_accepted_events"].to_numpy(dtype=float) for trace in adaptive_traces]
     )
     explored = np.vstack(
-        [
-            trace["cumulative_exploration_events"].to_numpy(dtype=float)
-            for trace in adaptive_traces
-        ]
+        [trace["cumulative_exploration_events"].to_numpy(dtype=float) for trace in adaptive_traces]
     )
     event_index = baseline_trace["event_index"].to_numpy(dtype=int)
     result = pd.DataFrame(
@@ -389,8 +379,7 @@ def _build_curve_frame(
     for action in action_order:
         action_rates = np.vstack(
             [
-                trace["recommended_action"].eq(action).cumsum().to_numpy(dtype=float)
-                / event_index
+                trace["recommended_action"].eq(action).cumsum().to_numpy(dtype=float) / event_index
                 for trace in adaptive_traces
             ]
         )
@@ -405,6 +394,7 @@ def _write_json(content: dict[str, Any], path: Path) -> None:
     temporary_path.write_text(
         json.dumps(content, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     temporary_path.replace(path)
 
@@ -412,7 +402,7 @@ def _write_json(content: dict[str, Any], path: Path) -> None:
 def _write_csv(frame: pd.DataFrame, path: Path) -> None:
     """Grava tabela com diretório criado antecipadamente."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(path, index=False, encoding="utf-8")
+    frame.to_csv(path, index=False, encoding="utf-8", lineterminator="\n")
 
 
 def _plot_comparison(curves: pd.DataFrame, path: Path) -> None:
@@ -508,6 +498,7 @@ def _log_mlflow_run(
                 "prior_beta": config.prior_beta,
                 "segment_columns": ",".join(config.segment_columns),
                 "minimum_support_per_action": config.minimum_support_per_action,
+                "segment_selection_basis": config.segment_selection_basis,
                 "historical_reward_warm_start": config.historical_reward_warm_start,
                 "seed_start": config.seed_start,
                 "seed_count": config.seed_count,
@@ -527,8 +518,12 @@ def _log_mlflow_run(
                 "test_adaptive_exploration_rate": test_adaptive["exploration_rate"]["mean"],
                 "test_absolute_lift": test_adaptive["lift_vs_fixed"]["absolute_mean"],
                 "test_relative_lift": test_adaptive["lift_vs_fixed"]["relative_mean"],
-                "test_lift_ci_lower": test_adaptive["lift_vs_fixed"]["absolute_bootstrap_confidence_interval"]["lower"],
-                "test_lift_ci_upper": test_adaptive["lift_vs_fixed"]["absolute_bootstrap_confidence_interval"]["upper"],
+                "test_lift_ci_lower": test_adaptive["lift_vs_fixed"][
+                    "absolute_bootstrap_confidence_interval"
+                ]["lower"],
+                "test_lift_ci_upper": test_adaptive["lift_vs_fixed"][
+                    "absolute_bootstrap_confidence_interval"
+                ]["upper"],
             }
         )
         for path in artifact_paths:
@@ -623,7 +618,8 @@ def run_m4_evaluation(
                     "fallback_rate": summary["fallback_rate"],
                     "celular_selection_rate": summary["action_distribution"]["celular"]["rate"],
                     "telefone_selection_rate": summary["action_distribution"]["telefone"]["rate"],
-                    "absolute_lift_vs_fixed": summary["mean_reward"] - baseline_summary["mean_reward"],
+                    "absolute_lift_vs_fixed": summary["mean_reward"]
+                    - baseline_summary["mean_reward"],
                     "relative_lift_vs_fixed": (
                         (summary["mean_reward"] - baseline_summary["mean_reward"])
                         / baseline_summary["mean_reward"]
@@ -674,6 +670,7 @@ def run_m4_evaluation(
             "prior": {"alpha": config.prior_alpha, "beta": config.prior_beta},
             "segment_columns": config.segment_columns,
             "minimum_support_per_action": config.minimum_support_per_action,
+            "segment_selection_basis": config.segment_selection_basis,
             "supported_segment_count": len(initial_policy.segment_posteriors),
             "observed_segment_count": len(initial_policy.segment_support),
             "sparse_segment_fallback": "global_action_posterior",
@@ -693,7 +690,9 @@ def run_m4_evaluation(
             "counterfactual_rule": "Eventos sem coincidência de ação não revelam recompensa.",
             "regret": {
                 "value": None,
-                "reason": "Não existe referência contrafactual válida para calcular regret factual.",
+                "reason": (
+                    "Não existe referência contrafactual válida para calcular regret factual."
+                ),
             },
         },
         "splits": split_reports,
@@ -724,7 +723,9 @@ def run_m4_evaluation(
                 config.state_artifact_path.relative_to(config.project_root)
             ).replace("\\", "/"),
             "initial_policy_state_sha256": compute_sha256(config.state_artifact_path),
-            "seed_results": str(config.seed_results_path.relative_to(config.project_root)).replace("\\", "/"),
+            "seed_results": str(config.seed_results_path.relative_to(config.project_root)).replace(
+                "\\", "/"
+            ),
             "curves": str(config.curves_path.relative_to(config.project_root)).replace("\\", "/"),
             "comparison_plot": str(
                 config.comparison_plot_path.relative_to(config.project_root)
@@ -732,9 +733,18 @@ def run_m4_evaluation(
         },
         "limitations": [
             "O replay é observacional e condicionado à coincidência com a ação histórica.",
-            "Coberturas diferentes tornam recompensa cumulativa uma medida de apoio, não um lift causal.",
-            "A propensão da política histórica é desconhecida; IPS não foi usado como evidência principal.",
-            "A ausência de contrafactual impede afirmar o resultado de uma troca de canal por cliente.",
+            (
+                "Coberturas diferentes tornam recompensa cumulativa uma medida de apoio, "
+                "não um lift causal."
+            ),
+            (
+                "A propensão da política histórica é desconhecida; IPS não foi usado como "
+                "evidência principal."
+            ),
+            (
+                "A ausência de contrafactual impede afirmar o resultado de uma troca de "
+                "canal por cliente."
+            ),
             "A política deve permanecer rejeitada se o intervalo de lift incluir zero.",
         ],
     }

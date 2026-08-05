@@ -1,0 +1,13 @@
+# Mantém hashes reproduzíveis em qualquer sistema operacional.
+*.json text eol=lf
+*.ipynb text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+/data/raw/*.csv text eol=crlf
+/data/interim/*.csv text eol=lf
+/data/processed/*.csv text eol=lf
+/reports/**/*.csv text eol=lf

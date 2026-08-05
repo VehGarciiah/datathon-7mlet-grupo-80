@@ -8,7 +8,6 @@ import pandas as pd
 
 from src.data.contracts import TRANSLATED_BUSINESS_COLUMNS, DataContractError
 
-
 IDENTIFIER_COLUMN = "event_id"
 ACTION_COLUMN = "canal_contato"
 TARGET_COLUMN = "resultado"
@@ -100,7 +99,9 @@ def build_feature_tables(interim_frame: pd.DataFrame) -> FeatureBuildResult:
 
     leaked_context = BLOCKED_MODEL_COLUMNS.intersection(CONTEXT_COLUMNS)
     if leaked_context:
-        raise DataContractError(f"Colunas bloqueadas chegaram ao contexto: {sorted(leaked_context)}.")
+        raise DataContractError(
+            f"Colunas bloqueadas chegaram ao contexto: {sorted(leaked_context)}."
+        )
     if model_table[IDENTIFIER_COLUMN].duplicated().any():
         raise DataContractError("O identificador técnico ficou duplicado após a preparação.")
     if model_table[TARGET_COLUMN].isna().any() or model_table[ACTION_COLUMN].isna().any():

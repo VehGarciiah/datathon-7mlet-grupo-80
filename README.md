@@ -2,7 +2,15 @@
 
 Solução acadêmica de Machine Learning Engineering para experimentação adaptativa em campanhas de marketing. O MVP escolhe o próximo melhor **canal de contato** entre ações elegíveis e aprende com a conversão observada.
 
-> Status: M0–M5 concluídos — contrato, dados PT-BR, preparação sem vazamento, baselines, Thompson Sampling, replay, golden set e API com feedback idempotente. O M6 consolida arquitetura AWS, observabilidade e documentação final, conforme o [roadmap técnico](specs/ROADMAP_IMPLEMENTACAO.md).
+> Status: M0–M6 concluídos — pipeline reproduzível, baselines, Thompson Sampling candidato, replay, golden set, API, MLflow, observabilidade local e arquitetura AWS. A publicação do vídeo e a aprovação humana da política candidata permanecem como gates finais.
+
+## Resumo executivo e impacto
+
+O projeto transforma o problema genérico de “melhor oferta” em uma decisão factual suportada pela base: escolher `celular` ou `telefone` para o próximo contato elegível. A política fixa recomenda sempre celular; a política Thompson Sampling `1.1.0` usa mês do contato e resultado da campanha anterior para equilibrar exploração e explotação.
+
+No replay factual de teste, a recompensa média entre eventos aceitos passou de **15,19%** no baseline para **17,94%** no Thompson Sampling: lift absoluto médio de **2,75 p.p.**, lift relativo de **18,13%** e IC95% bootstrap do lift de **[2,53; 2,99] p.p.** em 30 seeds. O mesmo gate foi positivo na validação.
+
+Esse ganho é evidência offline observacional, não estimativa causal de produção. As políticas têm coberturas diferentes no replay e só revelam recompensa quando a recomendação coincide com o canal histórico. O impacto de negócio deverá ser confirmado em experimento online controlado, com propensão registrada, limites de contato, custo por canal e aprovação humana.
 
 ## Visão do problema
 
@@ -297,7 +305,7 @@ O identificador da execução mais recente está em [`latest_mlflow_run.json`](r
 
 ## Thompson Sampling e replay factual — M4
 
-O M4 implementa [`SegmentedThompsonSamplingPolicy`](src/policies/thompson_sampling.py), uma política Beta-Bernoulli com prior `Beta(1,1)`, seed controlada, atualização idempotente e estado JSON persistido por substituição atômica. Os segmentos usam somente `resultado_campanha_anterior` e `nunca_contatado_anteriormente`, ambos disponíveis antes da decisão.
+O M4 implementa [`SegmentedThompsonSamplingPolicy`](src/policies/thompson_sampling.py), uma política Beta-Bernoulli com prior `Beta(1,1)`, seed controlada, atualização idempotente e estado JSON persistido por substituição atômica. A versão `1.1.0` usa somente `mes_contato` e `resultado_campanha_anterior`, ambos disponíveis antes da decisão. Essa configuração foi escolhida entre combinações parcimoniosas usando apenas validação e congelada antes da avaliação final em teste.
 
 ```mermaid
 flowchart LR
@@ -309,7 +317,7 @@ flowchart LR
     F --> G[Registra feedback_id idempotente]
 ```
 
-O treino determina apenas quais segmentos têm suporte mínimo de 100 observações por braço. As recompensas históricas não aquecem os posteriores, evitando transformar o viés da política observacional em prior. Dos quatro segmentos observados, dois atendem ao suporte; os demais recorrem ao posterior global do braço.
+O treino determina apenas quais segmentos têm suporte mínimo de 100 observações por braço. As recompensas históricas não aquecem os posteriores, evitando transformar o viés da política observacional em prior. Dos 30 segmentos observados, seis atendem ao suporte; os demais recorrem ao posterior global do braço.
 
 ### Protocolo e resultado
 
@@ -318,16 +326,16 @@ Cada uma das 30 seeds começa do mesmo estado inicial em validação e teste. Ba
 | Split | Política | Recompensa média | Desvio entre seeds | Cobertura | Recompensa cumulativa | Exploração |
 |---|---|---:|---:|---:|---:|---:|
 | Validação | Baseline fixa | 14,30% | — | 63,54% | 561 | 0% |
-| Validação | Thompson Sampling | 12,82% | 2,52 p.p. | 40,77% | 336,0 em média | 14,45% |
+| Validação | Thompson Sampling | 17,22% | 0,57 p.p. | 42,78% | 454,3 em média | 14,91% |
 | Teste | Baseline fixa | 15,19% | — | 63,11% | 592 | 0% |
-| Teste | Thompson Sampling | 15,26% | 1,22 p.p. | 51,67% | 491,7 em média | 10,75% |
+| Teste | Thompson Sampling | 17,94% | 0,64 p.p. | 41,11% | 454,6 em média | 13,40% |
 
 | Split | Lift absoluto médio | Lift relativo médio | IC95% bootstrap do lift | Gate |
 |---|---:|---:|---:|---|
-| Validação | -1,48 p.p. | -10,34% | [-2,32; -0,58] p.p. | reprovado |
-| Teste | +0,07 p.p. | +0,47% | [-0,39; +0,47] p.p. | reprovado |
+| Validação | +2,92 p.p. | +20,43% | [+2,72; +3,13] p.p. | passou |
+| Teste | +2,75 p.p. | +18,13% | [+2,53; +2,99] p.p. | passou |
 
-O IC do lift usa as 30 seeds como unidade de reamostragem; o IC da recompensa fixa reamostra os eventos aceitos. O pequeno ganho médio do teste não é estatisticamente confiável, pois o intervalo inclui zero, e não se repetiu na validação. A política fica marcada como `rejected`; `best_historical_action` permanece como rollback. Não houve seleção oportunista de seed. Recompensa cumulativa também não deve ser comparada isoladamente, porque as coberturas são diferentes.
+O IC do lift usa as 30 seeds como unidade de reamostragem; o IC da recompensa fixa reamostra os eventos aceitos. Como o lift médio e seu limite inferior são positivos nos dois splits, a política fica marcada como `candidate`. A promoção continua bloqueada até aprovação humana; `best_historical_action` permanece como rollback do serving padrão. Não houve seleção oportunista de seed. Recompensa cumulativa também não deve ser comparada isoladamente, porque as coberturas são diferentes.
 
 Regret factual não foi calculado: a base não contém um oracle nem o resultado do canal não executado. IPS também não é evidência principal porque a propensão da política histórica é desconhecida.
 
@@ -343,11 +351,11 @@ Regret factual não foi calculado: a base não contém um oracle nem o resultado
 | [`thompson_policy_state.json`](artifacts/policies/thompson_policy_state.json) | estado inicial versionado e restaurável |
 | [`latest_mlflow_run.json`](reports/policy/latest_mlflow_run.json) | run oficial do experimento M4 |
 
-O run oficial `e3554905b0124e8d9163a7e63389588b` registra 12 parâmetros, 9 métricas, 6 artefatos e as tags `candidate=false`, `approved=false`, `rejected=true`. O notebook [`04_policy_evaluation.ipynb`](notebooks/04_policy_evaluation.ipynb) apresenta as evidências sem reimplementar o replay nem gerar runs extras.
+O identificador da execução mais recente fica em [`latest_mlflow_run.json`](reports/policy/latest_mlflow_run.json). O run registra configuração, métricas, artefatos e as tags `candidate=true`, `approved=false`, `rejected=false`. O notebook [`04_policy_evaluation.ipynb`](notebooks/04_policy_evaluation.ipynb) apresenta as evidências sem reimplementar o replay nem gerar runs extras.
 
 ## Golden set e API demonstrável — M5
 
-O serving carrega automaticamente o modelo M3 e os metadados dos runs M3/M4. Como o Thompson Sampling está `rejected`, a estratégia `approved_adaptive_or_fixed_rollback` ativa [`BestHistoricalActionPolicy`](src/policies/fixed.py). O modo adaptativo só pode ser iniciado explicitamente como `adaptive_demo`; ele usa estado separado e não altera o status de aprovação.
+O serving carrega automaticamente o modelo M3 e os metadados dos runs M3/M4. Como o Thompson Sampling está `candidate`, mas ainda não recebeu aprovação humana, a estratégia `approved_adaptive_or_fixed_rollback` mantém [`BestHistoricalActionPolicy`](src/policies/fixed.py). O modo adaptativo só pode ser iniciado explicitamente como `adaptive_demo`; ele usa estado separado e não altera o status de aprovação.
 
 ### Golden set
 
@@ -457,6 +465,39 @@ Quando houver mais de um integrante, a aprovação de uma versão candidata deve
 - a base é ordenada por data, mas não oferece uma data completa por registro para reconstrução temporal rigorosa;
 - associações por canal ou perfil não devem ser apresentadas como efeito causal.
 
+## Arquitetura-alvo AWS — M6
+
+O serviço seria empacotado em imagem versionada no Amazon ECR e executado pelo ECS Fargate atrás de Amazon API Gateway e AWS WAF. O DynamoDB armazenaria decisões, feedback idempotente e o estado concorrente da política; o S3, com versionamento e criptografia KMS, guardaria datasets permitidos, relatórios e artefatos. Jobs agendados no SageMaker Processing/Training ou em tarefas ECS executariam preparação, treino e replay, registrando parâmetros e métricas em um MLflow hospedado em ECS com metadados no RDS e artefatos no S3.
+
+CloudWatch centralizaria logs estruturados, métricas, dashboards e alarmes. IAM de mínimo privilégio separaria serving, treino e aprovação; Secrets Manager guardaria credenciais, e CloudTrail registraria mudanças administrativas. Uma versão candidata só seria promovida após o gate técnico e aprovação humana. Falha de artefato, degradação de recompensa ou violação de dados acionaria rollback para `best_historical_action`. O desafio não exige provisionar esses serviços; esta é a arquitetura operacional proposta.
+
+```mermaid
+flowchart LR
+    U[Canal digital] --> WAF[AWS WAF]
+    WAF --> APIG[API Gateway]
+    APIG --> API[FastAPI em ECS Fargate]
+    ECR[ECR<br/>imagens versionadas] --> API
+    API --> DDB[(DynamoDB<br/>decisões, feedback e posterior)]
+    API --> S3[(S3<br/>eventos e artefatos)]
+    S3 --> TRAIN[Job SageMaker ou ECS<br/>treino e replay]
+    TRAIN --> MLF[MLflow<br/>ECS + RDS + S3]
+    MLF --> APPROVE{Gate técnico<br/>e humano}
+    APPROVE -->|promover| S3
+    APPROVE -->|rejeitar| ROLLBACK[Baseline aprovado]
+    CW[CloudWatch<br/>logs, métricas e alarmes] --- API
+    CW --- TRAIN
+    KMS[KMS] --- S3
+    KMS --- DDB
+    IAM[IAM + Secrets Manager] --- API
+    CT[CloudTrail] --- IAM
+```
+
+### Observabilidade e resposta operacional
+
+O MVP já publica contadores HTTP, status por rota, latência p95, recomendações, feedbacks, recompensa observada, exploração e fallback em `/metrics`. Logs estruturados incluem rota, status, latência e versão sem registrar o payload. [`monitoring.yaml`](configs/monitoring.yaml) versiona faixas das features, recompensa e cobertura de referência; após pelo menos 500 feedbacks, recompensa abaixo do limite inferior factual do baseline (`14,11%`) exige pausa do modo adaptativo e revisão.
+
+Na AWS, um job periódico compararia a janela recente com o treino por PSI ou Jensen-Shannon, além de medir categorias desconhecidas, nulos, cobertura, braço dominante e disparidades por fatia de auditoria. CloudWatch alarmaria erros, indisponibilidade e latência; relatórios de drift e qualidade seriam gravados no S3 e anexados ao MLflow. Limiares de SLO permanecem sem números inventados até uma medição local representativa. Todo alerta de dados, recompensa ou governança abre revisão humana e pode bloquear promoção ou acionar rollback.
+
 ## Estrutura atual
 
 ```text
@@ -555,7 +596,7 @@ git clone https://github.com/VehGarciiah/datathon-7mlet-grupo-80
 cd datathon-7mlet-grupo-80
 ```
 
-Crie e ative um ambiente virtual e instale as dependências:
+Use Python 3.14, crie e ative um ambiente virtual e instale as versões fixadas:
 
 ```powershell
 python -m venv .venv
@@ -593,6 +634,12 @@ Execute todos os testes:
 
 ```powershell
 python -m pytest -q
+```
+
+Valide lint e imports:
+
+```powershell
+python -m ruff check .
 ```
 
 Execute o notebook de análise:
@@ -657,7 +704,7 @@ curl.exe -X POST http://127.0.0.1:8000/v1/recommendations `
   --data-binary "@examples/recommendation_request.json"
 ```
 
-Para uma demonstração isolada da política reprovada, em outro processo:
+Para uma demonstração isolada da política candidata ainda não aprovada, em outro processo:
 
 ```powershell
 $env:DATATHON_POLICY_MODE = "adaptive_demo"
@@ -672,7 +719,20 @@ Execute o notebook do M5:
 jupyter notebook notebooks/05_golden_set_and_api.ipynb
 ```
 
-Arquitetura AWS e consolidação final da observabilidade serão adicionadas no M6.
+## Demo Day e encerramento
+
+O pitch deve durar no máximo cinco minutos: problema e decisão; dados e vazamento removido; baseline e Thompson Sampling; lift, incerteza e cobertura; API com recomendação e feedback; MLflow, AWS, governança e limitações. A demonstração padrão mantém o baseline aprovado; o modo `adaptive_demo` mostra a candidata sem promovê-la automaticamente.
+
+**Vídeo final:** pendente de gravação e publicação pelo Grupo 80. Substituir esta frase pelo link público antes da submissão.
+
+### Próximos passos
+
+1. registrar os nomes dos responsáveis por negócio, técnica e risco de modelo;
+2. aprovar ou rejeitar formalmente a política candidata após revisão por par;
+3. validar a janela de recompensa, consentimento e regras de elegibilidade;
+4. executar experimento online controlado com logging da propensão;
+5. definir SLOs a partir de tráfego representativo e automatizar drift/disparidade;
+6. gravar o vídeo, executar a checklist final e criar a tag de entrega.
 
 ## Checklist M0
 
@@ -751,7 +811,7 @@ Arquitetura AWS e consolidação final da observabilidade serão adicionadas no 
 - [x] recompensa, cobertura, escolhas, exploração e lift reportados;
 - [x] intervalo bootstrap de 95% e dispersão entre seeds reportados;
 - [x] regret omitido com justificativa contrafactual explícita;
-- [x] política rejeitada porque o gate estatístico não foi atendido;
+- [x] política `1.1.0` passou o gate estatístico em validação e teste e foi marcada como candidata;
 - [x] parâmetros, métricas, tags e artefatos registrados no MLflow;
 - [x] notebook de evidências e testes automatizados adicionados.
 
@@ -762,7 +822,7 @@ Arquitetura AWS e consolidação final da observabilidade serão adicionadas no 
 - [x] atributos de auditoria ausentes do payload da política;
 - [x] FastAPI com recomendações, feedback, health, ready, metrics e Swagger;
 - [x] schemas Pydantic com enums, faixas de referência e campos extras bloqueados;
-- [x] política fixa selecionada automaticamente após rejeição do M4;
+- [x] política fixa mantida até aprovação humana explícita da candidata do M4;
 - [x] fallback seguro quando o estado adaptativo está ausente;
 - [x] serviço indisponível com `503` quando o rollback obrigatório não carrega;
 - [x] SQLite transacional guarda somente contexto mínimo;
@@ -773,3 +833,16 @@ Arquitetura AWS e consolidação final da observabilidade serão adicionadas no 
 - [x] referências de qualidade/recompensa derivadas dos artefatos versionados;
 - [x] SLO não definido enquanto não existe amostra de latência representativa;
 - [x] exemplos de execução, notebook e testes de contrato adicionados.
+
+## Checklist M6
+
+- [x] arquitetura AWS consolidada no README;
+- [x] serving, estado, feedback, treino e MLflow separados no diagrama;
+- [x] IAM, KMS, Secrets Manager, WAF e CloudTrail documentados;
+- [x] logs, métricas, drift, alertas e rollback descritos;
+- [x] resumo executivo e impacto com limitações junto às métricas;
+- [x] comandos de teste e lint documentados;
+- [x] CI em Linux valida dependências, lint, testes e hash do snapshot;
+- [ ] nomes individuais registrados e política candidata aprovada ou rejeitada por humano;
+- [ ] vídeo público de até cinco minutos vinculado no README;
+- [ ] tag final de entrega criada após a validação independente.

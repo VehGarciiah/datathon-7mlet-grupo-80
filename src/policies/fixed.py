@@ -25,7 +25,9 @@ class ActionStatistics:
     confidence_interval_upper: float
 
 
-def wilson_interval(successes: int, observations: int, z_value: float = 1.959963984540054) -> tuple[float, float]:
+def wilson_interval(
+    successes: int, observations: int, z_value: float = 1.959963984540054
+) -> tuple[float, float]:
     """Calcula intervalo de Wilson de 95% para uma proporção binária."""
     if observations <= 0:
         return 0.0, 0.0
@@ -94,7 +96,9 @@ class BestHistoricalActionPolicy:
             raise DataContractError("Nenhuma ação possui observações no treino.")
 
         rates = {item.action: item.conversion_rate for item in summaries}
-        self.best_action = max(self.action_order, key=lambda action: rates.get(action, float("-inf")))
+        self.best_action = max(
+            self.action_order, key=lambda action: rates.get(action, float("-inf"))
+        )
         self.statistics = summaries
         return self
 

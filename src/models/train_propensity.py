@@ -51,7 +51,6 @@ from src.features.build_features import (
 )
 from src.policies.fixed import BestHistoricalActionPolicy, evaluate_logged_replay
 
-
 PROPENSITY_INPUT_COLUMNS = [*CONTEXT_COLUMNS, ACTION_COLUMN]
 PROPENSITY_CATEGORICAL_COLUMNS = [*CATEGORICAL_CONTEXT_COLUMNS, ACTION_COLUMN]
 
@@ -166,7 +165,8 @@ def load_processed_splits(config: ModelingConfig) -> tuple[dict[str, pd.DataFram
         expected_hash = metadata["outputs"][name]["sha256"]
         if actual_hash != expected_hash:
             raise DataContractError(
-                f"Hash do split '{name}' divergente: esperado={expected_hash}; recebido={actual_hash}."
+                f"Hash do split '{name}' divergente: esperado={expected_hash}; "
+                f"recebido={actual_hash}."
             )
         frame = pd.read_csv(
             path,
@@ -287,6 +287,7 @@ def _write_json(content: dict[str, Any], path: Path) -> None:
     temporary_path.write_text(
         json.dumps(content, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     temporary_path.replace(path)
 
@@ -397,10 +398,14 @@ def evaluate_audit_slices(
     ]
     if not rows:
         return pd.DataFrame(columns=result_columns)
-    return pd.DataFrame(rows, columns=result_columns).sort_values(
-        ["slice_column", "average_precision"],
-        ascending=[True, False],
-    ).reset_index(drop=True)
+    return (
+        pd.DataFrame(rows, columns=result_columns)
+        .sort_values(
+            ["slice_column", "average_precision"],
+            ascending=[True, False],
+        )
+        .reset_index(drop=True)
+    )
 
 
 def _log_mlflow_run(
@@ -439,14 +444,28 @@ def _log_mlflow_run(
         )
         mlflow.log_metrics(
             {
-                "validation_dummy_average_precision": report["predictive_models"]["dummy"]["validation"]["average_precision"],
-                "validation_logistic_average_precision": report["predictive_models"]["logistic_regression"]["validation"]["average_precision"],
-                "validation_logistic_brier": report["predictive_models"]["logistic_regression"]["validation"]["brier_score"],
-                "test_logistic_average_precision": report["predictive_models"]["logistic_regression"]["test"]["average_precision"],
-                "test_logistic_roc_auc": report["predictive_models"]["logistic_regression"]["test"]["roc_auc"],
-                "test_logistic_brier": report["predictive_models"]["logistic_regression"]["test"]["brier_score"],
+                "validation_dummy_average_precision": report["predictive_models"]["dummy"][
+                    "validation"
+                ]["average_precision"],
+                "validation_logistic_average_precision": report["predictive_models"][
+                    "logistic_regression"
+                ]["validation"]["average_precision"],
+                "validation_logistic_brier": report["predictive_models"]["logistic_regression"][
+                    "validation"
+                ]["brier_score"],
+                "test_logistic_average_precision": report["predictive_models"][
+                    "logistic_regression"
+                ]["test"]["average_precision"],
+                "test_logistic_roc_auc": report["predictive_models"]["logistic_regression"]["test"][
+                    "roc_auc"
+                ],
+                "test_logistic_brier": report["predictive_models"]["logistic_regression"]["test"][
+                    "brier_score"
+                ],
                 "test_fixed_mean_reward": report["fixed_policy"]["replay"]["test"]["mean_reward"],
-                "test_fixed_replay_coverage": report["fixed_policy"]["replay"]["test"]["replay_coverage"],
+                "test_fixed_replay_coverage": report["fixed_policy"]["replay"]["test"][
+                    "replay_coverage"
+                ],
             }
         )
         for path in artifact_paths:
@@ -614,9 +633,7 @@ def run_m3_training(
         "schema_version": "1.0.0",
         "milestone": "M3",
         "data": {
-            "preparation_metadata_sha256": compute_sha256(
-                preparation_config.metadata_path
-            ),
+            "preparation_metadata_sha256": compute_sha256(preparation_config.metadata_path),
             "split_hashes": {
                 name: preparation_metadata["outputs"][name]["sha256"]
                 for name in ["train", "validation", "test"]
@@ -664,9 +681,13 @@ def run_m3_training(
             ),
         },
         "artifacts": {
-            "model_path": str(config.model_path.relative_to(config.project_root)).replace("\\", "/"),
+            "model_path": str(config.model_path.relative_to(config.project_root)).replace(
+                "\\", "/"
+            ),
             "model_sha256": compute_sha256(config.model_path),
-            "fixed_policy_path": str(config.fixed_policy_path.relative_to(config.project_root)).replace("\\", "/"),
+            "fixed_policy_path": str(
+                config.fixed_policy_path.relative_to(config.project_root)
+            ).replace("\\", "/"),
             "fixed_policy_sha256": compute_sha256(config.fixed_policy_path),
             "smoke_inference_probability": smoke_probability,
         },
@@ -678,9 +699,15 @@ def run_m3_training(
             "mlflow": mlflow.__version__,
         },
         "limitations": [
-            "O modelo estima associação P(conversão | contexto, canal observado), não efeito causal.",
+            (
+                "O modelo estima associação P(conversão | contexto, canal observado), "
+                "não efeito causal."
+            ),
             "O teste histórico não contém recompensa contrafactual para o canal não executado.",
-            "Atributos de auditoria foram excluídos do modelo e devem ser usados apenas para análise de disparidade.",
+            (
+                "Atributos de auditoria foram excluídos do modelo e devem ser usados apenas "
+                "para análise de disparidade."
+            ),
         ],
     }
     _write_json(report, config.metrics_path)
@@ -707,7 +734,9 @@ def run_m3_training(
 
 def main() -> None:
     """Executa baselines, avaliação e tracking pela linha de comando."""
-    parser = argparse.ArgumentParser(description="Treina os baselines preditivo e determinístico do M3.")
+    parser = argparse.ArgumentParser(
+        description="Treina os baselines preditivo e determinístico do M3."
+    )
     parser.add_argument(
         "--config",
         default="configs/modeling.yaml",

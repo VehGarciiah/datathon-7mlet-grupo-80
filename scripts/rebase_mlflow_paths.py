@@ -6,7 +6,6 @@ import argparse
 import sqlite3
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -48,9 +47,7 @@ def expected_experiment_uri(artifacts_root: Path, experiment_id: str) -> str:
     return (artifacts_root / experiment_id).as_uri()
 
 
-def expected_run_uri(
-    artifacts_root: Path, experiment_id: str, run_uuid: str
-) -> str:
+def expected_run_uri(artifacts_root: Path, experiment_id: str, run_uuid: str) -> str:
     """Monta a URI canônica dos artefatos de uma execução."""
     return (artifacts_root / experiment_id / run_uuid / "artifacts").as_uri()
 
@@ -58,10 +55,7 @@ def expected_run_uri(
 def validate_schema(connection: sqlite3.Connection) -> None:
     """Falha cedo quando o arquivo não possui o schema esperado do MLflow."""
     tables = {
-        row[0]
-        for row in connection.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'table'"
-        )
+        row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
     missing_tables = {"experiments", "runs"} - tables
     if missing_tables:
@@ -69,9 +63,7 @@ def validate_schema(connection: sqlite3.Connection) -> None:
         raise RuntimeError(f"Banco sem tabelas obrigatórias do MLflow: {missing}")
 
 
-def collect_mismatches(
-    connection: sqlite3.Connection, artifacts_root: Path
-) -> list[str]:
+def collect_mismatches(connection: sqlite3.Connection, artifacts_root: Path) -> list[str]:
     """Compara as URIs persistidas com os caminhos esperados neste clone."""
     mismatches: list[str] = []
 
@@ -81,17 +73,13 @@ def collect_mismatches(
     for experiment_id, current_uri in experiment_rows:
         expected_uri = expected_experiment_uri(artifacts_root, str(experiment_id))
         if current_uri != expected_uri:
-            mismatches.append(
-                f"experimento {experiment_id}: {current_uri!r} != {expected_uri!r}"
-            )
+            mismatches.append(f"experimento {experiment_id}: {current_uri!r} != {expected_uri!r}")
 
     run_rows = connection.execute(
         "SELECT run_uuid, experiment_id, artifact_uri FROM runs"
     ).fetchall()
     for run_uuid, experiment_id, current_uri in run_rows:
-        expected_uri = expected_run_uri(
-            artifacts_root, str(experiment_id), str(run_uuid)
-        )
+        expected_uri = expected_run_uri(artifacts_root, str(experiment_id), str(run_uuid))
         if current_uri != expected_uri:
             mismatches.append(f"run {run_uuid}: {current_uri!r} != {expected_uri!r}")
 
@@ -105,12 +93,8 @@ def collect_mismatches(
 
 def rebase_paths(connection: sqlite3.Connection, artifacts_root: Path) -> tuple[int, int]:
     """Atualiza somente os dois campos que carregam caminhos locais absolutos."""
-    experiment_rows = connection.execute(
-        "SELECT experiment_id FROM experiments"
-    ).fetchall()
-    run_rows = connection.execute(
-        "SELECT run_uuid, experiment_id FROM runs"
-    ).fetchall()
+    experiment_rows = connection.execute("SELECT experiment_id FROM experiments").fetchall()
+    run_rows = connection.execute("SELECT run_uuid, experiment_id FROM runs").fetchall()
 
     with connection:
         for (experiment_id,) in experiment_rows:
@@ -126,9 +110,7 @@ def rebase_paths(connection: sqlite3.Connection, artifacts_root: Path) -> tuple[
             connection.execute(
                 "UPDATE runs SET artifact_uri = ? WHERE run_uuid = ?",
                 (
-                    expected_run_uri(
-                        artifacts_root, str(experiment_id), str(run_uuid)
-                    ),
+                    expected_run_uri(artifacts_root, str(experiment_id), str(run_uuid)),
                     run_uuid,
                 ),
             )

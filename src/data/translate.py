@@ -74,8 +74,7 @@ def load_pipeline_config(config_path: str | Path = "configs/data.yaml") -> DataP
     interim = data_config["interim"]
     quality = data_config["quality"]
     interim_target_distribution = {
-        int(key): int(value)
-        for key, value in quality["expected_target_distribution"].items()
+        int(key): int(value) for key, value in quality["expected_target_distribution"].items()
     }
     return DataPipelineConfig(
         project_root=project_root,
@@ -121,9 +120,7 @@ def load_raw_dataset(config: DataPipelineConfig) -> pd.DataFrame:
 def translate_dataset_to_ptbr(source_frame: pd.DataFrame) -> pd.DataFrame:
     """Traduz colunas e categorias sem alterar o DataFrame de origem."""
     if list(source_frame.columns) != SOURCE_COLUMNS:
-        raise DataContractError(
-            "Não é possível traduzir: as colunas brutas divergem do contrato."
-        )
+        raise DataContractError("Não é possível traduzir: as colunas brutas divergem do contrato.")
 
     # Cria uma cópia profunda para preservar a camada bruta em memória.
     translated_frame = source_frame.copy(deep=True)
@@ -135,9 +132,7 @@ def translate_dataset_to_ptbr(source_frame: pd.DataFrame) -> pd.DataFrame:
         unmapped_mask = original_values.notna() & translated_values.isna()
         if unmapped_mask.any():
             unexpected = sorted(original_values.loc[unmapped_mask].astype(str).unique())
-            raise DataContractError(
-                f"Categorias sem tradução em '{source_column}': {unexpected}."
-            )
+            raise DataContractError(f"Categorias sem tradução em '{source_column}': {unexpected}.")
         translated_frame[source_column] = translated_values
 
     # Renomeia as colunas somente após validar todo o vocabulário.
@@ -170,6 +165,7 @@ def _write_metadata_atomically(metadata: dict[str, Any], config: DataPipelineCon
     temporary_path.write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     temporary_path.replace(config.metadata_path)
 

@@ -12,9 +12,9 @@
     "active_policy_version": "1.0.0",
     "policy_mode": "approved_fixed_rollback",
     "model_version": "1.0.0",
-    "m3_run_id": "7cb483c397a44ec08e0e9c831c244c08",
-    "m4_run_id": "e3554905b0124e8d9163a7e63389588b",
-    "fallback_reason": "Política adaptativa com status rejected; rollback fixo mantido.",
+    "m3_run_id": "7057c855256b4fffa1010cbc56708bfd",
+    "m4_run_id": "19dccc266d674b36b8688c65e44acf11",
+    "fallback_reason": "Política adaptativa com status candidate; rollback fixo mantido.",
     "error": null
   },
   "cases": [

@@ -5,7 +5,12 @@ from __future__ import annotations
 import pandas as pd
 
 from src.evaluation.replay import bootstrap_mean_interval, run_single_replay
-from src.features.build_features import ACTION_COLUMN, CONTEXT_COLUMNS, IDENTIFIER_COLUMN, TARGET_COLUMN
+from src.features.build_features import (
+    ACTION_COLUMN,
+    CONTEXT_COLUMNS,
+    IDENTIFIER_COLUMN,
+    TARGET_COLUMN,
+)
 from src.policies.thompson_sampling import SegmentedThompsonSamplingPolicy
 
 
@@ -41,8 +46,7 @@ def test_replay_updates_exactly_the_accepted_events() -> None:
     )
 
     posterior_updates = sum(
-        posterior.alpha + posterior.beta - 2
-        for posterior in policy.global_posteriors.values()
+        posterior.alpha + posterior.beta - 2 for posterior in policy.global_posteriors.values()
     )
     assert posterior_updates == summary["accepted_events"]
     assert trace["observed_reward"].notna().sum() == summary["accepted_events"]

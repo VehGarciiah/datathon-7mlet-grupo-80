@@ -57,6 +57,7 @@ class APIConfig:
     experiment_config_path: Path
     modeling_config_path: Path
     policy_config_path: Path
+    adaptive_segment_columns: tuple[str, ...]
     selection_strategy: str
     default_policy_mode: str
     approved_adaptive_mode: str
@@ -94,6 +95,11 @@ def load_api_config(config_path: str | Path = "configs/api.yaml") -> APIConfig:
     resolved_path = Path(config_path).resolve()
     project_root = resolved_path.parent.parent
     content = _read_yaml(resolved_path)
+    policy_config_path = project_root / content["policy_config_path"]
+    policy_content = _read_yaml(policy_config_path)
+    adaptive_segment_columns = tuple(policy_content["adaptive_policy"]["segmentation"]["columns"])
+    if not adaptive_segment_columns:
+        raise DataContractError("A política adaptativa deve declarar colunas de segmento.")
     serving = content["serving"]
     storage = content["storage"]
     feedback = content["feedback"]
@@ -104,7 +110,8 @@ def load_api_config(config_path: str | Path = "configs/api.yaml") -> APIConfig:
         config_path=resolved_path,
         experiment_config_path=project_root / content["experiment_config_path"],
         modeling_config_path=project_root / content["modeling_config_path"],
-        policy_config_path=project_root / content["policy_config_path"],
+        policy_config_path=policy_config_path,
+        adaptive_segment_columns=adaptive_segment_columns,
         selection_strategy=serving["selection_strategy"],
         default_policy_mode=serving["default_policy_mode"],
         approved_adaptive_mode=serving["approved_adaptive_mode"],
@@ -281,11 +288,7 @@ class RecommendationService:
             recommendation_id = str(uuid4())
             created_at = datetime.now(timezone.utc)
             learning_context = {
-                column: context[column]
-                for column in [
-                    "resultado_campanha_anterior",
-                    "nunca_contatado_anteriormente",
-                ]
+                column: context[column] for column in self.config.adaptive_segment_columns
             }
             record = RecommendationRecord(
                 recommendation_id=recommendation_id,

@@ -166,8 +166,8 @@ policies:
       alpha: 1.0
       beta: 1.0
     candidate_segments:
+      - month
       - poutcome
-      - never_contacted_before
     minimum_support_per_segment_action: 100
     sparse_segment_fallback: global_action_posterior
     random_seed: 42
