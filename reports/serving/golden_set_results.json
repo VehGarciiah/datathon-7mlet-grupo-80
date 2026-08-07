@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "milestone": "M5",
   "fixture_sha256": "6387b1b3538a5fff7334a35386cb7353c2dac7f347d531cc9ab77d303da6463b",
-  "api_config_sha256": "d3de0f610abc1b113b05491f6e3f89d02113ab2d862b5cbbd0241b739827708b",
+  "api_config_sha256": "25a8d75ce754a63978b564bbd17895cd585fe73bfa1b9f33e013384a807f7fad",
   "case_count": 5,
   "passed_count": 5,
   "all_cases_passed": true,

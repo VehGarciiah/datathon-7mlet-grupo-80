@@ -1,0 +1,38 @@
+local.file_match "datathon_api" {
+  path_targets = [{
+    "__path__" = "/var/log/datathon/*.jsonl",
+    "job"      = "datathon-api",
+    "service_name" = "datathon-next-best-channel-api",
+  }]
+}
+
+loki.source.file "datathon_api" {
+  targets       = local.file_match.datathon_api.targets
+  forward_to    = [loki.process.datathon_api.receiver]
+  tail_from_end = false
+}
+
+loki.process "datathon_api" {
+  stage.json {
+    expressions = {
+      event    = "event",
+      level    = "level",
+      trace_id = "trace_id",
+    }
+  }
+
+  stage.labels {
+    values = {
+      event = "",
+      level = "",
+    }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

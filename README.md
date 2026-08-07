@@ -379,7 +379,7 @@ O relatório [`golden_set_results.json`](reports/serving/golden_set_results.json
 | `POST /v1/feedback` | registra recompensa terminal e impede duplicação/conflito |
 | `GET /health` | confirma vida do processo |
 | `GET /ready` | confirma política, modelo, SQLite e linhagem MLflow |
-| `GET /metrics` | expõe contadores e latência p95 em texto Prometheus |
+| `GET /metrics` | expõe counters, gauges e histogramas no formato Prometheus |
 | `GET /docs` | disponibiliza Swagger gerado pelo contrato Pydantic |
 
 ```mermaid
@@ -403,7 +403,7 @@ As faixas numéricas do schema vêm dos mínimos e máximos do treino versionado
 
 Feedback idêntico retorna `duplicate` sem nova atualização. Uma segunda recompensa divergente retorna `409`; ID desconhecido retorna `404`; timestamp inválido retorna `422`. Feedback tardio é preservado para auditoria, mas não atualiza a política. A política fixa apenas audita recompensas. No modo demonstrativo adaptativo, somente o braço recomendado é atualizado e o estado runtime é salvo atomicamente.
 
-Logs estruturados registram rota, status, latência e versão, nunca o corpo. `/metrics` publica volumes persistidos, recompensa observada agregada, recomendações, feedbacks, exploração, fallback e latência p95 sem identificadores. [`monitoring.yaml`](configs/monitoring.yaml) preserva faixas do treino e o limite inferior do IC95% factual do baseline; SLO de serviço permanece sem limiar até existir amostra local suficiente, evitando inventar uma meta.
+Logs JSON registram rota normalizada, status, latência, versão, `trace_id` e `span_id`, nunca o corpo. `/metrics` publica counters agregáveis, histogramas de latência e atraso de feedback, readiness, volumes persistidos, recompensa observada, recomendações, exploração e fallback sem identificadores. [`monitoring.yaml`](configs/monitoring.yaml) preserva faixas do treino e o limite inferior do IC95% factual do baseline; SLO de serviço permanece sem limiar até existir amostra local suficiente, evitando inventar uma meta.
 
 ## Critérios de sucesso
 
@@ -494,7 +494,7 @@ flowchart LR
 
 ### Observabilidade e resposta operacional
 
-O MVP já publica contadores HTTP, status por rota, latência p95, recomendações, feedbacks, recompensa observada, exploração e fallback em `/metrics`. Logs estruturados incluem rota, status, latência e versão sem registrar o payload. [`monitoring.yaml`](configs/monitoring.yaml) versiona faixas das features, recompensa e cobertura de referência; após pelo menos 500 feedbacks, recompensa abaixo do limite inferior factual do baseline (`14,11%`) exige pausa do modo adaptativo e revisão.
+O MVP publica métricas Prometheus nativas da API e um exportador das evidências M1–M5. Prometheus, Alertmanager, Grafana, Loki, Alloy, Tempo, OpenTelemetry Collector, MLflow e a própria API sobem no mesmo Podman Compose. Os dashboards provisionados cobrem sinais RED, feedback e política online, métricas offline, gates e disponibilidade dos artefatos. Logs e traces são correlacionados pelo `trace_id`. Após pelo menos 500 feedbacks, recompensa abaixo do limite inferior factual do baseline (`14,11%`) abre alerta para pausa do modo adaptativo e revisão.
 
 Na AWS, um job periódico compararia a janela recente com o treino por PSI ou Jensen-Shannon, além de medir categorias desconhecidas, nulos, cobertura, braço dominante e disparidades por fatia de auditoria. CloudWatch alarmaria erros, indisponibilidade e latência; relatórios de drift e qualidade seriam gravados no S3 e anexados ao MLflow. Limiares de SLO permanecem sem números inventados até uma medição local representativa. Todo alerta de dados, recompensa ou governança abre revisão humana e pode bloquear promoção ou acionar rollback.
 
@@ -534,6 +534,15 @@ datathon-7mlet-grupo-80/
 │   └── serving/serving.db           # schema local de decisões e feedback
 ├── mlruns/                          # artefatos das execuções registradas no MLflow
 ├── mlflow.db                        # metadados e métricas das execuções do MLflow
+├── observability/                    # configuração e runbook da stack local
+│   ├── alertmanager/
+│   ├── alloy/
+│   ├── grafana/                     # datasources e dashboards provisionados
+│   ├── loki/
+│   ├── mlflow/
+│   ├── otel-collector/
+│   ├── prometheus/
+│   └── tempo/
 ├── reports/
 │   ├── modeling/
 │   │   ├── fixed_baseline.json
@@ -566,6 +575,9 @@ datathon-7mlet-grupo-80/
 │   │   └── build_features.py
 │   ├── models/
 │   │   └── train_propensity.py
+│   ├── observability/
+│   │   ├── api.py
+│   │   └── process_exporter.py
 │   ├── evaluation/
 │   │   ├── golden_set.py
 │   │   └── replay.py
@@ -582,8 +594,11 @@ datathon-7mlet-grupo-80/
 │   ├── integration/
 │   ├── fixtures/
 │   └── unit/
+├── Containerfile
+├── compose.yaml
 ├── pyproject.toml
 ├── README.md
+├── requirements-api.txt
 └── requirements.txt
 ```
 
@@ -595,6 +610,47 @@ Clone o repositório:
 git clone https://github.com/VehGarciiah/datathon-7mlet-grupo-80
 cd datathon-7mlet-grupo-80
 ```
+
+### Executar API e observabilidade com Podman Compose
+
+Com a máquina do Podman iniciada, prepare as variáveis locais e suba todo o ambiente:
+
+```powershell
+Copy-Item .env.example .env
+podman compose config
+podman compose up -d --build
+podman compose ps
+```
+
+As portas são vinculadas somente ao loopback do host:
+
+| Interface | Endereço padrão | Finalidade |
+|---|---|---|
+| API/Swagger | `http://127.0.0.1:8000/docs` | recomendação, feedback e probes |
+| Grafana | `http://127.0.0.1:3000` | dashboards de API e processo de ML |
+| Prometheus | `http://127.0.0.1:9090` | consultas, targets e regras |
+| Alertmanager | `http://127.0.0.1:9093` | alertas ativos e silêncios locais |
+| MLflow | `http://127.0.0.1:5000` | runs, métricas e artefatos M3/M4 |
+
+O login inicial do Grafana vem de `.env.example`; altere `GRAFANA_ADMIN_PASSWORD` no `.env` antes de compartilhar o ambiente. Loki, Tempo, Alloy, OpenTelemetry Collector e o exportador do processo permanecem apenas na rede interna do Compose. Verifique rapidamente o ambiente:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/ready
+Invoke-RestMethod http://127.0.0.1:9090/-/ready
+Invoke-RestMethod http://127.0.0.1:3000/api/health
+Invoke-RestMethod http://127.0.0.1:5000/health
+```
+
+Para acompanhar ou encerrar os serviços:
+
+```powershell
+podman compose logs -f api prometheus grafana
+podman compose down
+```
+
+`podman compose down` preserva os volumes. `podman compose down -v` também apaga métricas, traces, logs internos e a cópia containerizada do banco MLflow; use `-v` somente quando quiser reinicializar todo o ambiente. O runbook completo está em [`observability/README.md`](observability/README.md).
+
+### Executar diretamente no Python
 
 Use Python 3.14, crie e ative um ambiente virtual e instale as versões fixadas:
 

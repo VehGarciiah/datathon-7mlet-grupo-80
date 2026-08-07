@@ -33,5 +33,4 @@ golden_set:
 
 observability:
   service_name: datathon-next-best-channel-api
-  metrics_history_limit: 1000
   log_level: INFO

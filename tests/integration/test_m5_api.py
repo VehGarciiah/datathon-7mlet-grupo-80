@@ -68,8 +68,9 @@ def test_recommendation_feedback_idempotency_and_metrics(tmp_path) -> None:
     assert duplicate.json()["status"] == "duplicate"
     assert conflict.status_code == 409
     assert missing.status_code == 404
-    assert "datathon_recommendations_total 1" in metrics.text
-    assert "datathon_persisted_feedback 1" in metrics.text
+    assert 'datathon_recommendations_total{action="celular"' in metrics.text
+    assert "datathon_persisted_feedback_total 1.0" in metrics.text
+    assert "datathon_http_request_duration_seconds_bucket" in metrics.text
 
 
 def test_schema_and_eligibility_errors_are_explicit(tmp_path) -> None:

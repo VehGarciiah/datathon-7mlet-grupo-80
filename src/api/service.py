@@ -78,7 +78,6 @@ class APIConfig:
     golden_fixture_path: Path
     golden_results_path: Path
     service_name: str
-    metrics_history_limit: int
     log_level: str
 
 
@@ -132,7 +131,6 @@ def load_api_config(config_path: str | Path = "configs/api.yaml") -> APIConfig:
         golden_fixture_path=project_root / golden["fixture_path"],
         golden_results_path=project_root / golden["results_path"],
         service_name=observability["service_name"],
-        metrics_history_limit=int(observability["metrics_history_limit"]),
         log_level=observability["log_level"],
     )
 

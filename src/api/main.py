@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import logging
-import threading
 import time
-from collections import defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response, status
-from fastapi.responses import PlainTextResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from src.api.repository import ConflictingFeedbackError, RecommendationNotFoundError
 from src.api.schemas import (
@@ -30,74 +27,15 @@ from src.api.service import (
     ServiceNotReadyError,
     load_api_config,
 )
+from src.observability.api import (
+    ServiceMetrics,
+    configure_logging,
+    configure_tracing,
+    log_event,
+    route_template,
+)
 
 LOGGER = logging.getLogger("datathon.api")
-
-
-class ServiceMetrics:
-    """Mantém contadores técnicos agregados sem payloads de clientes."""
-
-    def __init__(self, history_limit: int) -> None:
-        self.lock = threading.Lock()
-        self.requests: dict[tuple[str, int], int] = defaultdict(int)
-        self.latencies: dict[str, deque[float]] = defaultdict(lambda: deque(maxlen=history_limit))
-        self.recommendations = 0
-        self.feedback = 0
-        self.explorations = 0
-        self.fallbacks = 0
-
-    def observe_request(self, path: str, status_code: int, latency_seconds: float) -> None:
-        """Registra volume, código e latência por rota."""
-        with self.lock:
-            self.requests[(path, status_code)] += 1
-            self.latencies[path].append(latency_seconds)
-
-    def observe_recommendation(self, *, exploration: bool, fallback: bool) -> None:
-        """Agrega decisões sem guardar contexto ou identificador."""
-        with self.lock:
-            self.recommendations += 1
-            self.explorations += int(exploration)
-            self.fallbacks += int(fallback)
-
-    def observe_feedback(self) -> None:
-        """Incrementa feedbacks HTTP aceitos, inclusive duplicados seguros."""
-        with self.lock:
-            self.feedback += 1
-
-    def render_prometheus(self, repository_counts: dict[str, int | float]) -> str:
-        """Renderiza subconjunto Prometheus sem dependência adicional."""
-        with self.lock:
-            lines = [
-                "# HELP datathon_http_requests_total Requisições HTTP por rota e status.",
-                "# TYPE datathon_http_requests_total counter",
-            ]
-            for (path, status_code), count in sorted(self.requests.items()):
-                lines.append(
-                    f'datathon_http_requests_total{{path="{path}",status="{status_code}"}} {count}'
-                )
-            lines.extend(
-                [
-                    "# HELP datathon_recommendations_total Recomendações emitidas.",
-                    "# TYPE datathon_recommendations_total counter",
-                    f"datathon_recommendations_total {self.recommendations}",
-                    f"datathon_feedback_requests_total {self.feedback}",
-                    f"datathon_explorations_total {self.explorations}",
-                    f"datathon_fallbacks_total {self.fallbacks}",
-                    f"datathon_persisted_recommendations {repository_counts['recommendations']}",
-                    f"datathon_persisted_feedback {repository_counts['feedback']}",
-                    f"datathon_observed_reward_total {repository_counts['observed_reward_total']}",
-                    f"datathon_observed_reward_mean {repository_counts['observed_reward_mean']}",
-                    f"datathon_learning_applied_total {repository_counts['learning_applied']}",
-                ]
-            )
-            for path, values in sorted(self.latencies.items()):
-                if values:
-                    ordered = sorted(values)
-                    index = min(len(ordered) - 1, int(0.95 * len(ordered)))
-                    lines.append(
-                        f'datathon_http_latency_p95_seconds{{path="{path}"}} {ordered[index]:.6f}'
-                    )
-        return "\n".join(lines) + "\n"
 
 
 def create_app(
@@ -109,13 +47,13 @@ def create_app(
 ) -> FastAPI:
     """Cria aplicação injetável para produção local e testes isolados."""
     config = config_override or load_api_config(config_path)
-    logging.basicConfig(level=getattr(logging, config.log_level.upper(), logging.INFO))
+    configure_logging(config.log_level)
     service = RecommendationService(
         config,
         database_path=database_path,
         policy_mode=policy_mode,
     )
-    metrics = ServiceMetrics(config.metrics_history_limit)
+    metrics = ServiceMetrics(service.repository.counts)
     app = FastAPI(
         title="Datathon — Próximo melhor canal",
         version="1.0.0",
@@ -126,36 +64,52 @@ def create_app(
     )
     app.state.service = service
     app.state.metrics = metrics
+    readiness = service.readiness()
+    metrics.ready.set(1 if readiness.status == "ready" else 0)
+    metrics.set_policy_info(
+        policy_id=readiness.active_policy_id,
+        policy_version=readiness.active_policy_version,
+        policy_mode=readiness.policy_mode,
+        model_version=readiness.model_version,
+    )
 
     @app.middleware("http")
     async def observe_http(request: Request, call_next):  # type: ignore[no-untyped-def]
-        """Emite log estruturado sem corpo da requisição."""
+        """Mede e registra requisições sem inspecionar o corpo."""
         started_at = time.perf_counter()
         status_code = 500
+        should_observe = request.url.path != "/metrics"
+        if should_observe:
+            metrics.http_in_flight.inc()
         try:
             response = await call_next(request)
             status_code = response.status_code
             return response
         finally:
             latency = time.perf_counter() - started_at
-            metrics.observe_request(request.url.path, status_code, latency)
-            LOGGER.info(
-                json.dumps(
-                    {
-                        "event": "http_request",
-                        "method": request.method,
-                        "path": request.url.path,
-                        "status": status_code,
-                        "latency_ms": round(latency * 1000, 3),
-                        "policy_version": (
-                            getattr(service.active_policy, "version", None)
-                            if service.active_policy
-                            else None
-                        ),
-                    },
-                    ensure_ascii=False,
+            if should_observe:
+                route = route_template(request)
+                metrics.observe_request(
+                    method=request.method,
+                    route=route,
+                    status_code=status_code,
+                    latency_seconds=latency,
                 )
-            )
+                metrics.http_in_flight.dec()
+                log_event(
+                    LOGGER,
+                    "http_request",
+                    method=request.method,
+                    route=route,
+                    status=status_code,
+                    status_class=f"{status_code // 100}xx",
+                    latency_ms=round(latency * 1000, 3),
+                    policy_version=(
+                        getattr(service.active_policy, "version", None)
+                        if service.active_policy
+                        else None
+                    ),
+                )
 
     @app.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
@@ -169,19 +123,20 @@ def create_app(
     @app.get("/ready", response_model=ReadyResponse)
     def ready(response: Response) -> ReadyResponse:
         """Confirma política, modelo, SQLite e linhagem MLflow carregados."""
-        readiness = service.readiness()
+        current_readiness = service.readiness()
         if not service.repository.integrity_check():
-            readiness = readiness.model_copy(
+            current_readiness = current_readiness.model_copy(
                 update={"status": "not_ready", "error": "Falha de integridade do SQLite."}
             )
-        if readiness.status != "ready":
+        if current_readiness.status != "ready":
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        return readiness
+        metrics.ready.set(1 if current_readiness.status == "ready" else 0)
+        return current_readiness
 
-    @app.get("/metrics", response_class=PlainTextResponse)
-    def prometheus_metrics() -> str:
-        """Expõe somente contadores e latências agregadas."""
-        return metrics.render_prometheus(service.repository.counts())
+    @app.get("/metrics", include_in_schema=False)
+    def prometheus_metrics() -> Response:
+        """Expõe o registro Prometheus sem payloads ou identificadores."""
+        return Response(content=generate_latest(metrics.registry), media_type=CONTENT_TYPE_LATEST)
 
     @app.post(
         "/v1/recommendations",
@@ -193,12 +148,18 @@ def create_app(
         try:
             result = service.recommend(payload)
         except EligibilityError as exc:
+            metrics.observe_domain_error("recommendation", "ineligible")
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
         except ServiceNotReadyError as exc:
+            metrics.observe_domain_error("recommendation", "service_not_ready")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
             ) from exc
         metrics.observe_recommendation(
+            action=result.recommended_action.value,
+            policy_id=result.policy_id,
+            policy_version=result.policy_version,
+            policy_mode=str(result.evidence["policy_mode"]),
             exploration=result.is_exploration,
             fallback=result.used_fallback,
         )
@@ -210,26 +171,43 @@ def create_app(
         try:
             result = service.record_feedback(payload)
         except RecommendationNotFoundError as exc:
+            metrics.observe_domain_error("feedback", "recommendation_not_found")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="recommendation_id não encontrado.",
             ) from exc
         except ConflictingFeedbackError as exc:
+            metrics.observe_domain_error("feedback", "conflicting_terminal_feedback")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Feedback terminal conflitante já registrado.",
             ) from exc
         except InvalidFeedbackTimeError as exc:
+            metrics.observe_domain_error("feedback", "invalid_observation_time")
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
             ) from exc
         except ServiceNotReadyError as exc:
+            metrics.observe_domain_error("feedback", "service_not_ready")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
             ) from exc
-        metrics.observe_feedback()
+
+        recommendation = service.repository.get_recommendation(str(payload.recommendation_id))
+        delay_seconds = (
+            (payload.observed_at - recommendation.created_at).total_seconds()
+            if recommendation is not None
+            else 0.0
+        )
+        metrics.observe_feedback(
+            result_status=result.status,
+            reward=payload.reward,
+            learning_applied=result.learning_applied,
+            delay_seconds=delay_seconds,
+        )
         return result
 
+    configure_tracing(app, config.service_name, app.version)
     return app
 
 

@@ -76,16 +76,16 @@ def collect_mismatches(connection: sqlite3.Connection, artifacts_root: Path) -> 
             mismatches.append(f"experimento {experiment_id}: {current_uri!r} != {expected_uri!r}")
 
     run_rows = connection.execute(
-        "SELECT run_uuid, experiment_id, artifact_uri FROM runs"
+        "SELECT run_uuid, experiment_id, artifact_uri, lifecycle_stage FROM runs"
     ).fetchall()
-    for run_uuid, experiment_id, current_uri in run_rows:
+    for run_uuid, experiment_id, current_uri, lifecycle_stage in run_rows:
         expected_uri = expected_run_uri(artifacts_root, str(experiment_id), str(run_uuid))
         if current_uri != expected_uri:
             mismatches.append(f"run {run_uuid}: {current_uri!r} != {expected_uri!r}")
 
-        # Uma execução existente deve apontar para um diretório compartilhado real.
+        # Uma execução ativa deve apontar para um diretório compartilhado real.
         run_artifacts = artifacts_root / str(experiment_id) / str(run_uuid) / "artifacts"
-        if not run_artifacts.is_dir():
+        if lifecycle_stage != "deleted" and not run_artifacts.is_dir():
             mismatches.append(f"run {run_uuid}: diretório ausente em {run_artifacts}")
 
     return mismatches

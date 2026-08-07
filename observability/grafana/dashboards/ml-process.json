@@ -1,0 +1,97 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"color": "red", "text": "INCOMPLETO"}, "10": {"color": "green", "text": "COMPLETO"}}, "type": "value"}]}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}},
+      "targets": [{"expr": "sum(datathon_pipeline_artifact_available)", "refId": "A"}],
+      "title": "Evidências disponíveis (10)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"color": "red", "text": "FALHOU"}, "1": {"color": "green", "text": "APROVADO"}}, "type": "value"}]}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["min"], "values": false}},
+      "targets": [{"expr": "min(datathon_pipeline_gate_passed)", "refId": "A"}],
+      "title": "Gates técnicos",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}},
+      "targets": [{"expr": "datathon_golden_set_cases{result=\"passed\"}", "refId": "A"}],
+      "title": "Golden set aprovado",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}},
+      "targets": [{"expr": "datathon_policy_evaluation_metric{policy=\"adaptive_policy\",split=\"test\",metric=\"absolute_lift\"}", "refId": "A"}],
+      "title": "Lift absoluto candidato",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "id": 5,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "targets": [{"expr": "datathon_model_evaluation_metric{split=\"test\"}", "legendFormat": "{{metric}}", "refId": "A"}],
+      "title": "Métricas do modelo — teste",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "id": 6,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "targets": [{"expr": "datathon_policy_evaluation_metric{split=\"test\",metric=\"mean_reward\"}", "legendFormat": "recompensa {{policy}}", "refId": "A"}, {"expr": "datathon_policy_evaluation_metric{split=\"test\",metric=\"replay_coverage\"}", "legendFormat": "cobertura {{policy}}", "refId": "B"}],
+      "title": "Políticas no replay de teste",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "id": 7,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "targets": [{"expr": "time() - datathon_pipeline_artifact_mtime_seconds", "legendFormat": "{{stage}} / {{artifact}}", "refId": "A"}],
+      "title": "Idade das evidências",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "id": 8,
+      "options": {"showHeader": true},
+      "targets": [{"expr": "datathon_pipeline_artifact_available", "format": "table", "instant": true, "refId": "A"}],
+      "title": "Inventário de artefatos",
+      "transformations": [{"id": "organize", "options": {"excludeByName": {"Time": true, "__name__": true, "instance": true, "job": true}, "renameByName": {"Value": "Disponível", "artifact": "Artefato", "stage": "Etapa"}}}],
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["datathon", "ml", "pipeline"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timezone": "browser",
+  "title": "Datathon — Processo de ML",
+  "uid": "datathon-ml-process",
+  "version": 1
+}

@@ -1,0 +1,71 @@
+groups:
+  - name: datathon-recording
+    interval: 30s
+    rules:
+      - record: datathon:http_requests:rate5m
+        expr: sum(rate(datathon_http_requests_total[5m]))
+      - record: datathon:http_errors:ratio5m
+        expr: >-
+          sum(rate(datathon_http_requests_total{status_class="5xx"}[5m]))
+          / clamp_min(sum(rate(datathon_http_requests_total[5m])), 0.000001)
+      - record: datathon:http_latency:p95_5m
+        expr: >-
+          histogram_quantile(0.95,
+            sum by (le) (rate(datathon_http_request_duration_seconds_bucket[5m])))
+      - record: datathon:feedback:coverage
+        expr: >-
+          datathon_persisted_feedback_total
+          / clamp_min(datathon_persisted_recommendations_total, 1)
+      - record: datathon:reward:mean
+        expr: >-
+          datathon_observed_reward_total
+          / clamp_min(datathon_persisted_feedback_total, 1)
+
+  - name: datathon-alerts
+    rules:
+      - alert: DatathonApiDown
+        expr: up{job="datathon-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: API do Datathon indisponível
+          description: O Prometheus não consegue coletar a API há pelo menos um minuto.
+
+      - alert: DatathonApiNotReady
+        expr: datathon_service_ready == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: API viva, mas não pronta
+          description: Política, modelo ou armazenamento não passaram pelo readiness.
+
+      - alert: DatathonPipelineEvidenceMissing
+        expr: datathon_pipeline_artifact_available == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Evidência do pipeline ausente
+          description: "A evidência {{ $labels.stage }}/{{ $labels.artifact }} não está disponível."
+
+      - alert: DatathonTechnicalGateFailed
+        expr: datathon_pipeline_gate_passed == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Gate técnico não aprovado
+          description: "O gate {{ $labels.gate }} não está aprovado nas evidências versionadas."
+
+      - alert: DatathonObservedRewardBelowReference
+        expr: >-
+          datathon_persisted_feedback_total >= 500
+          and datathon:reward:mean < 0.14109799897383274
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Recompensa observada abaixo da referência
+          description: A média caiu abaixo do limite inferior factual do IC95% após 500 feedbacks.
