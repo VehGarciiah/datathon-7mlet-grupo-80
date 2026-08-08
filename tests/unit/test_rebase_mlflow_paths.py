@@ -11,10 +11,9 @@ from scripts.rebase_mlflow_paths import (
 )
 
 
-def test_deleted_run_does_not_require_an_artifact_directory(tmp_path) -> None:
+def test_run_does_not_require_an_artifact_directory(tmp_path) -> None:
     artifacts_root = tmp_path / "mlruns"
-    active_artifacts = artifacts_root / "1" / "active-run" / "artifacts"
-    active_artifacts.mkdir(parents=True)
+    artifacts_root.mkdir()
 
     with sqlite3.connect(":memory:") as connection:
         connection.execute(
@@ -54,7 +53,10 @@ def test_deleted_run_does_not_require_an_artifact_directory(tmp_path) -> None:
 
         assert collect_mismatches(connection, artifacts_root) == []
 
-        active_artifacts.rmdir()
+        connection.execute(
+            "UPDATE runs SET artifact_uri = ? WHERE run_uuid = ?",
+            ("file:///caminho/incorreto", "active-run"),
+        )
         mismatches = collect_mismatches(connection, artifacts_root)
 
     assert len(mismatches) == 1

@@ -49,6 +49,7 @@ from src.features.build_features import (
     NUMERIC_CONTEXT_COLUMNS,
     TARGET_COLUMN,
 )
+from src.observability.mlflow_tracking import resolve_tracking_uri
 from src.policies.fixed import BestHistoricalActionPolicy, evaluate_logged_replay
 
 PROPENSITY_INPUT_COLUMNS = [*CONTEXT_COLUMNS, ACTION_COLUMN]
@@ -413,10 +414,8 @@ def _log_mlflow_run(
     report: dict[str, Any],
     artifact_paths: list[Path],
 ) -> dict[str, str]:
-    """Registra parâmetros, métricas e artefatos no backend SQLite local."""
-    config.tracking_database_path.parent.mkdir(parents=True, exist_ok=True)
-    database_uri = f"sqlite:///{config.tracking_database_path.resolve().as_posix()}"
-    mlflow.set_tracking_uri(database_uri)
+    """Registra parâmetros, métricas e artefatos no backend configurado."""
+    mlflow.set_tracking_uri(resolve_tracking_uri(config.tracking_database_path))
     mlflow.set_experiment(config.experiment_name)
     with mlflow.start_run(run_name=config.run_name) as run:
         mlflow.set_tags(

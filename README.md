@@ -534,6 +534,8 @@ datathon-7mlet-grupo-80/
 │   └── serving/serving.db           # schema local de decisões e feedback
 ├── mlruns/                          # artefatos das execuções registradas no MLflow
 ├── mlflow.db                        # metadados e métricas das execuções do MLflow
+├── orchestration/
+│   └── dags/datathon_pipeline.py     # DAG visual M1–M4 do Airflow
 ├── observability/                    # configuração e runbook da stack local
 │   ├── alertmanager/
 │   ├── alloy/
@@ -622,6 +624,65 @@ podman compose up -d --build
 podman compose ps
 ```
 
+Execute o pipeline completo (tradução, preparação, treino e replay) sem instalar
+Python no host:
+
+```powershell
+podman compose run --rm --build pipeline
+podman compose restart api process-exporter
+```
+
+O job usa `http://mlflow:5000` como tracking URI e grava os artefatos no mesmo volume
+persistente do servidor. Os runs de M3 e M4 aparecem na interface do MLflow; os dados,
+modelos e relatórios continuam materializados em `data/`, `artifacts/` e `reports/` no
+checkout. O restart final faz a API recarregar o modelo e a linhagem recém-gerados.
+
+Para executar apenas uma etapa, use um dos serviços de tarefa:
+
+```powershell
+podman compose run --rm --build prepare
+podman compose run --rm --build train
+podman compose run --rm --build evaluate
+```
+
+Os serviços de tarefa pertencem ao profile `jobs`: eles não ficam em execução com
+`podman compose up`. Cada `run --rm` cria um contêiner efêmero, encerra ao concluir e
+preserva somente as saídas e o tracking. Não execute `mlflow ui` no host ao mesmo tempo,
+pois o serviço do Compose já ocupa a porta 5000.
+
+#### Orquestração visual com Airflow
+
+O profile opcional `orchestration` oferece estado e logs por etapa, retries, histórico e
+execução manual pela interface, sem substituir o MLflow:
+
+```powershell
+podman compose --profile orchestration up -d --build airflow
+```
+
+Abra `http://127.0.0.1:8080`, selecione o DAG `datathon_pipeline_m1_m4` e use **Trigger**.
+O DAG executa `M1 traduzir → M2 preparar → M3 treinar → M4 avaliar`; M3 e M4
+continuam registrando parâmetros, métricas e artefatos em `http://mlflow:5000`. Ele é
+manual (`schedule=None`), limita-se a um run ativo e tenta novamente uma vez cada tarefa.
+
+Também é possível dispará-lo pela CLI:
+
+```powershell
+podman compose --profile orchestration exec airflow `
+  airflow dags trigger datathon_pipeline_m1_m4
+```
+
+Depois de um run bem-sucedido, recarregue os consumidores dos artefatos:
+
+```powershell
+podman compose restart api process-exporter
+```
+
+O Airflow usa standalone + LocalExecutor + SQLite no volume `airflow-data`; essa escolha
+é deliberadamente local e não representa uma topologia de produção. Como a porta está
+restrita ao loopback, o ambiente local permite acesso administrativo sem login por padrão.
+Defina `AIRFLOW_LOCAL_ALL_ADMINS=false` para exigir o usuário `admin`; a senha gerada fica
+em `/opt/airflow/simple_auth_manager_passwords.json.generated` dentro do contêiner.
+
 As portas são vinculadas somente ao loopback do host:
 
 | Interface | Endereço padrão | Finalidade |
@@ -631,6 +692,7 @@ As portas são vinculadas somente ao loopback do host:
 | Prometheus | `http://127.0.0.1:9090` | consultas, targets e regras |
 | Alertmanager | `http://127.0.0.1:9093` | alertas ativos e silêncios locais |
 | MLflow | `http://127.0.0.1:5000` | runs, métricas e artefatos M3/M4 |
+| Airflow (profile opcional) | `http://127.0.0.1:8080` | DAG, tarefas, retries e logs de execução |
 
 O login inicial do Grafana vem de `.env.example`; altere `GRAFANA_ADMIN_PASSWORD` no `.env` antes de compartilhar o ambiente. Loki, Tempo, Alloy, OpenTelemetry Collector e o exportador do processo permanecem apenas na rede interna do Compose. Verifique rapidamente o ambiente:
 
@@ -645,12 +707,15 @@ Para acompanhar ou encerrar os serviços:
 
 ```powershell
 podman compose logs -f api prometheus grafana
-podman compose down
+podman compose --profile orchestration down
 ```
 
-`podman compose down` preserva os volumes. `podman compose down -v` também apaga métricas, traces, logs internos e a cópia containerizada do banco MLflow; use `-v` somente quando quiser reinicializar todo o ambiente. O runbook completo está em [`observability/README.md`](observability/README.md).
+O profile pode ser omitido se o Airflow não estiver ativo. O comando preserva os volumes.
+Acrescentar `-v` também apaga métricas, traces, logs internos, estado do Airflow e a cópia
+containerizada do banco MLflow; use-o somente quando quiser reinicializar todo o ambiente.
+O runbook completo está em [`observability/README.md`](observability/README.md).
 
-### Executar diretamente no Python
+### Executar diretamente no Python (alternativa sem contêiner)
 
 Use Python 3.14, crie e ative um ambiente virtual e instale as versões fixadas:
 
@@ -725,8 +790,13 @@ python -m src.evaluation.replay --config configs/policy.yaml
 Abra a interface local do MLflow:
 
 ```powershell
-python -m mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+python -m mlflow ui --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1 --port 5000 --workers 1
 ```
+
+No Windows, mantenha `--workers 1`: o multiprocessamento usado pelo servidor com o valor
+padrão pode falhar ao compartilhar o socket e gerar `WinError 10022`. O aviso de que o
+backend de jobs não suporta Windows afeta apenas a execução de MLflow Jobs; tracking,
+artefatos e a interface continuam disponíveis.
 
 Execute o notebook do M3:
 

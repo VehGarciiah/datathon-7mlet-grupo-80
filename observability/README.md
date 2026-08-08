@@ -12,7 +12,9 @@ FastAPI ── /metrics ───────────────> Prometheu
    └── OTLP/gRPC ──> OTel Collector ──> Tempo
 
 artefatos e relatórios M1–M5 ──> process-exporter ──> Prometheus
-MLflow DB + mlruns versionados ──> cópia em volume ──> MLflow UI
+jobs prepare/train/evaluate ──> MLflow server + volume ──> MLflow UI
+Airflow DAG M1–M4 ──> jobs Python + logs/estado por tarefa ──> Airflow UI
+MLflow DB + mlruns versionados ──> seed inicial do volume
 Prometheus ── regras ──> Alertmanager
 ```
 
@@ -25,12 +27,17 @@ Prometheus ── regras ──> Alertmanager
 | `prometheus` | `127.0.0.1:9090` | volume `prometheus-data`, retenção de sete dias |
 | `alertmanager` | `127.0.0.1:9093` | volume `alertmanager-data` |
 | `mlflow` | `127.0.0.1:5000` | volume `mlflow-data` |
+| `airflow` (profile `orchestration`) | `127.0.0.1:8080` | volume `airflow-data` |
+| `prepare`, `train`, `evaluate`, `pipeline` | jobs efêmeros | bind mounts de `data`, `artifacts` e `reports`; volume `mlflow-data` |
 | Loki, Tempo, Alloy e Collector | somente rede interna | volumes próprios quando aplicável |
 | `process-exporter` | somente rede interna | nenhuma; mounts somente leitura |
 
 A API roda com um worker. Isso é intencional no MVP: o SQLite e o estado demonstrativo da política são locais. Escala horizontal exige substituir esses estados por armazenamento compartilhado antes de aumentar o número de réplicas.
 
-O MLflow não modifica `mlflow.db` do checkout. Na primeira subida, banco e artefatos versionados são copiados para `mlflow-data`, e as URIs da cópia são adaptadas para os caminhos internos do container.
+O MLflow não modifica `mlflow.db` do checkout. Na primeira subida, banco e artefatos
+versionados são copiados para `mlflow-data`, e as URIs da cópia são adaptadas para os
+caminhos internos do container. Os jobs seguintes registram diretamente nesse servidor e
+volume, portanto seus novos runs aparecem na UI sem sincronização manual.
 
 ## Operação
 
@@ -40,6 +47,52 @@ podman compose config
 podman compose up -d --build
 podman compose ps
 ```
+
+Execute todo o processo de dados e ML em um contêiner efêmero:
+
+```powershell
+podman compose run --rm --build pipeline
+podman compose restart api process-exporter
+```
+
+Para rodar etapas isoladas:
+
+```powershell
+podman compose run --rm --build prepare
+podman compose run --rm --build train
+podman compose run --rm --build evaluate
+```
+
+O MLflow é iniciado automaticamente como dependência e precisa ficar saudável antes do
+job. Acompanhe a execução pelo terminal, por `podman compose logs -f mlflow` e por
+`http://127.0.0.1:5000`. Os jobs pertencem ao profile `jobs` e não permanecem ativos após
+a conclusão.
+
+### Airflow opcional
+
+Suba a orquestração visual somente quando necessária:
+
+```powershell
+podman compose --profile orchestration up -d --build airflow
+```
+
+Acesse `http://127.0.0.1:8080` e dispare `datathon_pipeline_m1_m4`. A interface exibe o
+grafo `M1 → M2 → M3 → M4`, logs, duração, tentativas e bloqueios por dependência.
+O DAG chama os mesmos módulos de `src/`; não existe uma segunda implementação do pipeline.
+MLflow permanece responsável pelos experimentos M3/M4.
+
+Para disparar ou parar o componente pela CLI:
+
+```powershell
+podman compose --profile orchestration exec airflow `
+  airflow dags trigger datathon_pipeline_m1_m4
+podman compose --profile orchestration stop airflow
+```
+
+O modo standalone usa LocalExecutor e SQLite persistido em `airflow-data`. Ele é adequado
+ao ambiente local demonstrativo, não a produção. `AIRFLOW_LOCAL_ALL_ADMINS=true` remove o
+login somente porque a porta está vinculada ao loopback; altere para `false` se precisar de
+autenticação local.
 
 Os dois dashboards aparecem automaticamente na pasta `Datathon`:
 
@@ -95,13 +148,14 @@ python -m pytest -q
 ## Encerramento e reset
 
 ```powershell
-podman compose down
+podman compose --profile orchestration down
 ```
 
-O comando preserva volumes e os diretórios `runtime/`. Para um reset completo e destrutivo da telemetria local:
+O profile pode ser omitido se o Airflow não estiver ativo. O comando preserva volumes e
+os diretórios `runtime/`. Para um reset completo e destrutivo da telemetria local:
 
 ```powershell
-podman compose down -v
+podman compose --profile orchestration down -v
 ```
 
 Remova manualmente os arquivos de `runtime/logs` e `runtime/serving` apenas se também quiser apagar logs e decisões locais. Não remova `artifacts/serving/serving.db`, `mlflow.db` ou `mlruns/`: eles são evidências versionadas do projeto.

@@ -1,6 +1,6 @@
 {
-  "run_id": "19dccc266d674b36b8688c65e44acf11",
+  "run_id": "27d6690486ac4c41ae54578eaf287d8b",
   "experiment_id": "2",
-  "tracking_uri": "sqlite:///C:/FIAP/workspace-default/datathon-7mlet-grupo-80/mlflow.db",
+  "tracking_uri": "http://mlflow:5000",
   "run_name": "segmented-thompson-replay-v1-1"
 }

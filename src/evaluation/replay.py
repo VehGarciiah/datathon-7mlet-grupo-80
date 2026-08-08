@@ -28,6 +28,7 @@ from src.features.build_features import (
     TARGET_COLUMN,
 )
 from src.models.train_propensity import load_modeling_config, load_processed_splits
+from src.observability.mlflow_tracking import resolve_tracking_uri
 from src.policies.fixed import BestHistoricalActionPolicy
 from src.policies.thompson_sampling import SegmentedThompsonSamplingPolicy
 
@@ -475,8 +476,7 @@ def _log_mlflow_run(
     artifact_paths: list[Path],
 ) -> dict[str, str]:
     """Registra configuração, incerteza, gate e evidências do M4."""
-    database_uri = f"sqlite:///{config.tracking_database_path.resolve().as_posix()}"
-    mlflow.set_tracking_uri(database_uri)
+    mlflow.set_tracking_uri(resolve_tracking_uri(config.tracking_database_path))
     mlflow.set_experiment(config.experiment_name)
     test_fixed = report["splits"]["test"]["fixed_baseline"]
     test_adaptive = report["splits"]["test"]["adaptive_policy"]

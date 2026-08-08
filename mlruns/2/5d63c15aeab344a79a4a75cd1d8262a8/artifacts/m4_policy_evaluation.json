@@ -242,7 +242,7 @@
     "interpretation": "A política adaptativa só é candidata quando o lift médio e o limite inferior do intervalo são positivos."
   },
   "reproducibility": {
-    "git_commit": "unavailable",
+    "git_commit": "3df843b7894b637a5871caf6488081df0292ece3",
     "policy_config_sha256": "9cccb036f215de2bdce9698e7b32ab71eb47d29754055c98e03130b54c36ad12",
     "preparation_metadata_sha256": "02e48aeaa3dca8faf7631d3623806743fef3a5942f9732fbf547860c31997aae",
     "split_hashes": {

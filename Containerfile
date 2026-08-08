@@ -1,4 +1,5 @@
 ARG PYTHON_VERSION=3.14.6
+ARG AIRFLOW_VERSION=3.3.0
 
 FROM docker.io/library/python:${PYTHON_VERSION}-slim AS api
 
@@ -38,6 +39,51 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=4 \
 
 ENTRYPOINT ["/usr/local/bin/datathon-api-entrypoint"]
 CMD ["python", "-m", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-access-log"]
+
+
+FROM docker.io/library/python:${PYTHON_VERSION}-slim AS pipeline
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    MPLCONFIGDIR=/tmp/matplotlib
+
+WORKDIR /workspace
+
+COPY requirements-pipeline.txt ./
+RUN python -m pip install --no-cache-dir -r requirements-pipeline.txt
+
+COPY src ./src
+COPY scripts/run_container_pipeline.py ./scripts/run_container_pipeline.py
+COPY configs ./configs
+
+RUN mkdir -p data artifacts reports /mlflow
+
+ENTRYPOINT ["python", "scripts/run_container_pipeline.py"]
+CMD ["all"]
+
+
+FROM docker.io/apache/airflow:${AIRFLOW_VERSION}-python3.14 AS airflow
+
+ARG AIRFLOW_VERSION
+
+ENV PYTHONPATH=/workspace \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    MPLCONFIGDIR=/tmp/matplotlib
+
+COPY --chown=airflow:root requirements-pipeline.txt /tmp/requirements-pipeline.txt
+RUN pip install --no-cache-dir \
+        "apache-airflow==${AIRFLOW_VERSION}" \
+        -r /tmp/requirements-pipeline.txt \
+    && pip check
+
+WORKDIR /workspace
+
+COPY --chown=airflow:root src ./src
+COPY --chown=airflow:root configs ./configs
+COPY --chown=airflow:root orchestration/dags /opt/airflow/dags
 
 
 FROM docker.io/library/python:${PYTHON_VERSION}-slim AS mlflow

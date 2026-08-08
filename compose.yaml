@@ -1,5 +1,32 @@
 name: datathon-observability
 
+x-pipeline-job: &pipeline-job
+  profiles: ["jobs"]
+  image: localhost/datathon-pipeline:1.0.0
+  user: "50000:0"
+  build:
+    context: .
+    dockerfile: Containerfile
+    target: pipeline
+  environment:
+    MLFLOW_TRACKING_URI: http://mlflow:5000
+  volumes:
+    - ./configs:/workspace/configs:ro
+    - ./data:/workspace/data
+    - ./artifacts:/workspace/artifacts
+    - ./reports:/workspace/reports
+    - mlflow-data:/mlflow
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  depends_on:
+    mlflow:
+      condition: service_healthy
+  networks:
+    - observability
+
 services:
   api:
     image: localhost/datathon-api:1.0.0
@@ -16,6 +43,10 @@ services:
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     volumes:
+      - ./artifacts/models:/app/artifacts/models:ro
+      - ./artifacts/policies:/app/artifacts/policies:ro
+      - ./reports/modeling:/app/reports/modeling:ro
+      - ./reports/policy:/app/reports/policy:ro
       - ./runtime/serving:/app/artifacts/serving
       - ./runtime/logs:/var/log/datathon
     read_only: true
@@ -51,6 +82,16 @@ services:
       - /tmp
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9101/metrics', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 4
     restart: unless-stopped
     networks:
       - observability
@@ -62,13 +103,82 @@ services:
       dockerfile: Containerfile
       target: mlflow
     environment:
-      MLFLOW_SERVER_ALLOWED_HOSTS: "localhost,127.0.0.1,mlflow"
+      MLFLOW_SERVER_ALLOWED_HOSTS: "${MLFLOW_SERVER_ALLOWED_HOSTS:-localhost,localhost:*,127.0.0.1,127.0.0.1:*,[::1],[[]::1]:*,mlflow,mlflow:*}"
+      MLFLOW_SERVER_WORKERS: "${MLFLOW_SERVER_WORKERS:-1}"
     ports:
       - "127.0.0.1:${MLFLOW_PORT:-5000}:5000"
     volumes:
       - mlflow-data:/mlflow
     security_opt:
       - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      - observability
+
+  prepare:
+    <<: *pipeline-job
+    command: ["prepare"]
+
+  train:
+    <<: *pipeline-job
+    command: ["train"]
+
+  evaluate:
+    <<: *pipeline-job
+    command: ["evaluate"]
+
+  pipeline:
+    <<: *pipeline-job
+    command: ["all"]
+
+  airflow:
+    profiles: ["orchestration"]
+    image: localhost/datathon-airflow:3.3.0
+    build:
+      context: .
+      dockerfile: Containerfile
+      target: airflow
+    command: ["standalone"]
+    working_dir: /workspace
+    environment:
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__API__BASE_URL: http://localhost:8080
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__PARALLELISM: "2"
+      AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: "1"
+      AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: "1"
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "${AIRFLOW_LOCAL_ALL_ADMINS:-true}"
+      AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+      DATATHON_PROJECT_ROOT: /workspace
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "127.0.0.1:${AIRFLOW_PORT:-8080}:8080"
+    volumes:
+      - airflow-data:/opt/airflow
+      - ./orchestration/dags:/opt/airflow/dags:ro
+      - ./configs:/workspace/configs:ro
+      - ./data:/workspace/data
+      - ./artifacts:/workspace/artifacts
+      - ./reports:/workspace/reports
+      - mlflow-data:/mlflow
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/v2/monitor/health', timeout=5)"
+      interval: 20s
+      timeout: 10s
+      start_period: 90s
+      retries: 6
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 45s
     restart: unless-stopped
     networks:
       - observability
@@ -199,6 +309,7 @@ networks:
     name: datathon-observability
 
 volumes:
+  airflow-data:
   alertmanager-data:
   alloy-data:
   grafana-data:
