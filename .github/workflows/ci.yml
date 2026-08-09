@@ -29,5 +29,8 @@ jobs:
       - name: Executar testes
         run: python -m pytest -q
 
+      - name: Validar snapshot versionado do MLflow
+        run: python -m scripts.snapshot_mlflow --check-only
+
       - name: Verificar hash do snapshot bruto
         run: python -m src.data.translate --config configs/data.yaml

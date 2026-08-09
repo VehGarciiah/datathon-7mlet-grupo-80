@@ -1,0 +1,224 @@
+{
+  "schema_version": "1.0.0",
+  "policy_id": "segmented_thompson_sampling",
+  "policy_version": "1.1.0",
+  "action_order": [
+    "celular",
+    "telefone"
+  ],
+  "segment_columns": [
+    "mes_contato",
+    "resultado_campanha_anterior"
+  ],
+  "minimum_support_per_action": 100,
+  "prior": {
+    "alpha": 1.0,
+    "beta": 1.0
+  },
+  "historical_reward_warm_start": false,
+  "random_seed": 1000,
+  "rng_state": {
+    "bit_generator": "PCG64",
+    "state": {
+      "state": 160298080023750866990043981581432466665,
+      "inc": 119065948144835586474643535142778641169
+    },
+    "has_uint32": 0,
+    "uinteger": 0
+  },
+  "global_posteriors": {
+    "celular": {
+      "alpha": 1.0,
+      "beta": 1.0
+    },
+    "telefone": {
+      "alpha": 1.0,
+      "beta": 1.0
+    }
+  },
+  "segment_posteriors": {
+    "[\"abr\",\"inexistente\"]": {
+      "celular": {
+        "alpha": 1.0,
+        "beta": 1.0
+      },
+      "telefone": {
+        "alpha": 1.0,
+        "beta": 1.0
+      }
+    },
+    "[\"ago\",\"inexistente\"]": {
+      "celular": {
+        "alpha": 1.0,
+        "beta": 1.0
+      },
+      "telefone": {
+        "alpha": 1.0,
+        "beta": 1.0
+      }
+    },
+    "[\"jul\",\"inexistente\"]": {
+      "celular": {
+        "alpha": 1.0,
+        "beta": 1.0
+      },
+      "telefone": {
+        "alpha": 1.0,
+        "beta": 1.0
+      }
+    },
+    "[\"jun\",\"inexistente\"]": {
+      "celular": {
+        "alpha": 1.0,
+        "beta": 1.0
+      },
+      "telefone": {
+        "alpha": 1.0,
+        "beta": 1.0
+      }
+    },
+    "[\"mai\",\"inexistente\"]": {
+      "celular": {
+        "alpha": 1.0,
+        "beta": 1.0
+      },
+      "telefone": {
+        "alpha": 1.0,
+        "beta": 1.0
+      }
+    },
+    "[\"nov\",\"inexistente\"]": {
+      "celular": {
+        "alpha": 1.0,
+        "beta": 1.0
+      },
+      "telefone": {
+        "alpha": 1.0,
+        "beta": 1.0
+      }
+    }
+  },
+  "segment_support": {
+    "[\"abr\",\"fracasso\"]": {
+      "celular": 441,
+      "telefone": 14
+    },
+    "[\"abr\",\"inexistente\"]": {
+      "celular": 1175,
+      "telefone": 105
+    },
+    "[\"abr\",\"sucesso\"]": {
+      "celular": 77,
+      "telefone": 6
+    },
+    "[\"ago\",\"fracasso\"]": {
+      "celular": 158,
+      "telefone": 10
+    },
+    "[\"ago\",\"inexistente\"]": {
+      "celular": 3891,
+      "telefone": 163
+    },
+    "[\"ago\",\"sucesso\"]": {
+      "celular": 132,
+      "telefone": 12
+    },
+    "[\"dez\",\"fracasso\"]": {
+      "celular": 20,
+      "telefone": 3
+    },
+    "[\"dez\",\"inexistente\"]": {
+      "celular": 52,
+      "telefone": 20
+    },
+    "[\"dez\",\"sucesso\"]": {
+      "celular": 30,
+      "telefone": 3
+    },
+    "[\"jul\",\"fracasso\"]": {
+      "celular": 75,
+      "telefone": 11
+    },
+    "[\"jul\",\"inexistente\"]": {
+      "celular": 4104,
+      "telefone": 758
+    },
+    "[\"jul\",\"sucesso\"]": {
+      "celular": 70,
+      "telefone": 10
+    },
+    "[\"jun\",\"fracasso\"]": {
+      "celular": 104,
+      "telefone": 10
+    },
+    "[\"jun\",\"inexistente\"]": {
+      "celular": 368,
+      "telefone": 3128
+    },
+    "[\"jun\",\"sucesso\"]": {
+      "celular": 92,
+      "telefone": 2
+    },
+    "[\"mai\",\"fracasso\"]": {
+      "celular": 1179,
+      "telefone": 82
+    },
+    "[\"mai\",\"inexistente\"]": {
+      "celular": 2554,
+      "telefone": 5658
+    },
+    "[\"mai\",\"sucesso\"]": {
+      "celular": 159,
+      "telefone": 11
+    },
+    "[\"mar\",\"fracasso\"]": {
+      "celular": 63,
+      "telefone": 6
+    },
+    "[\"mar\",\"inexistente\"]": {
+      "celular": 220,
+      "telefone": 20
+    },
+    "[\"mar\",\"sucesso\"]": {
+      "celular": 49,
+      "telefone": 8
+    },
+    "[\"nov\",\"fracasso\"]": {
+      "celular": 534,
+      "telefone": 37
+    },
+    "[\"nov\",\"inexistente\"]": {
+      "celular": 1913,
+      "telefone": 249
+    },
+    "[\"nov\",\"sucesso\"]": {
+      "celular": 97,
+      "telefone": 13
+    },
+    "[\"out\",\"fracasso\"]": {
+      "celular": 114,
+      "telefone": 14
+    },
+    "[\"out\",\"inexistente\"]": {
+      "celular": 199,
+      "telefone": 89
+    },
+    "[\"out\",\"sucesso\"]": {
+      "celular": 90,
+      "telefone": 8
+    },
+    "[\"set\",\"fracasso\"]": {
+      "celular": 90,
+      "telefone": 11
+    },
+    "[\"set\",\"inexistente\"]": {
+      "celular": 162,
+      "telefone": 44
+    },
+    "[\"set\",\"sucesso\"]": {
+      "celular": 101,
+      "telefone": 5
+    }
+  },
+  "processed_feedback_ids": []
+}

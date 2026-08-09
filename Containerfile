@@ -99,7 +99,9 @@ RUN python -m pip install --no-cache-dir mlflow==3.15.1
 
 COPY mlflow.db /seed/mlflow.db
 COPY mlruns /seed/mlruns
+COPY scripts/__init__.py /app/scripts/__init__.py
 COPY scripts/rebase_mlflow_paths.py /app/scripts/rebase_mlflow_paths.py
+COPY scripts/snapshot_mlflow.py /app/scripts/snapshot_mlflow.py
 COPY observability/mlflow/entrypoint.sh /usr/local/bin/datathon-mlflow-entrypoint
 
 RUN chmod 0755 /usr/local/bin/datathon-mlflow-entrypoint

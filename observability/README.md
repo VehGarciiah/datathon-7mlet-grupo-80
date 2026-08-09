@@ -28,7 +28,7 @@ Prometheus ── regras ──> Alertmanager
 | `alertmanager` | `127.0.0.1:9093` | volume `alertmanager-data` |
 | `mlflow` | `127.0.0.1:5000` | volume `mlflow-data` |
 | `airflow` (profile `orchestration`) | `127.0.0.1:8080` | volume `airflow-data` |
-| `prepare`, `train`, `evaluate`, `pipeline` | jobs efêmeros | bind mounts de `data`, `artifacts` e `reports`; volume `mlflow-data` |
+| `prepare`, `train`, `evaluate`, `pipeline`, `mlflow-snapshot` | jobs efêmeros | materialização no checkout; volume `mlflow-data` |
 | Loki, Tempo, Alloy e Collector | somente rede interna | volumes próprios quando aplicável |
 | `process-exporter` | somente rede interna | nenhuma; mounts somente leitura |
 
@@ -52,6 +52,7 @@ Execute todo o processo de dados e ML em um contêiner efêmero:
 
 ```powershell
 podman compose run --rm --build pipeline
+podman compose run --rm --build mlflow-snapshot
 podman compose restart api process-exporter
 ```
 
@@ -66,7 +67,8 @@ podman compose run --rm --build evaluate
 O MLflow é iniciado automaticamente como dependência e precisa ficar saudável antes do
 job. Acompanhe a execução pelo terminal, por `podman compose logs -f mlflow` e por
 `http://127.0.0.1:5000`. Os jobs pertencem ao profile `jobs` e não permanecem ativos após
-a conclusão.
+a conclusão. `mlflow-snapshot` publica no checkout um backup consistente do SQLite e dos
+artefatos do volume; execute-o depois de selecionar os runs que serão versionados.
 
 ### Airflow opcional
 
@@ -86,6 +88,7 @@ Para disparar ou parar o componente pela CLI:
 ```powershell
 podman compose --profile orchestration exec airflow `
   airflow dags trigger datathon_pipeline_m1_m4
+podman compose run --rm mlflow-snapshot
 podman compose --profile orchestration stop airflow
 ```
 

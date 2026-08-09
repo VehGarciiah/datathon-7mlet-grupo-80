@@ -588,7 +588,8 @@ datathon-7mlet-grupo-80/
 │       ├── fixed.py
 │       └── thompson_sampling.py
 ├── scripts/
-│   └── rebase_mlflow_paths.py       # adapta URIs do MLflow ao caminho do clone
+│   ├── rebase_mlflow_paths.py       # adapta URIs do MLflow ao caminho do clone
+│   └── snapshot_mlflow.py           # publica e valida o snapshot do volume MLflow
 ├── specs/
 │   ├── fiap-postech-mlet-datathon.pdf
 │   └── ROADMAP_IMPLEMENTACAO.md
@@ -637,6 +638,18 @@ persistente do servidor. Os runs de M3 e M4 aparecem na interface do MLflow; os 
 modelos e relatórios continuam materializados em `data/`, `artifacts/` e `reports/` no
 checkout. O restart final faz a API recarregar o modelo e a linhagem recém-gerados.
 
+Quando os runs forem escolhidos como evidência da entrega, publique o banco e os
+artefatos do volume no snapshot versionado:
+
+```powershell
+podman compose run --rm --build mlflow-snapshot
+python -m scripts.snapshot_mlflow --check-only
+```
+
+O primeiro comando recusa copiar enquanto existir run ativo, faz backup consistente do
+SQLite e valida se os IDs de M3/M4 em `latest_mlflow_run.json` estão finalizados e possuem
+artefatos. O segundo repete essa validação no checkout e também é executado pelo CI.
+
 Para executar apenas uma etapa, use um dos serviços de tarefa:
 
 ```powershell
@@ -674,6 +687,7 @@ podman compose --profile orchestration exec airflow `
 Depois de um run bem-sucedido, recarregue os consumidores dos artefatos:
 
 ```powershell
+podman compose run --rm mlflow-snapshot
 podman compose restart api process-exporter
 ```
 

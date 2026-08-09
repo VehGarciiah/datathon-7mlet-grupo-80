@@ -1,0 +1,1 @@
+"""Utilitários operacionais do projeto."""

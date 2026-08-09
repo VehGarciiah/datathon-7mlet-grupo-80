@@ -1,0 +1,63 @@
+# Configuração congelada do M4: Thompson Sampling e replay offline.
+schema_version: "1.0.0"
+modeling_config_path: configs/modeling.yaml
+
+adaptive_policy:
+  id: segmented_thompson_sampling
+  version: "1.1.0"
+  action_order:
+    - celular
+    - telefone
+  prior:
+    alpha: 1.0
+    beta: 1.0
+  segmentation:
+    columns:
+      - mes_contato
+      - resultado_campanha_anterior
+    minimum_support_per_action: 100
+    sparse_segment_fallback: global_action_posterior
+    selection_basis: >-
+      Configuração escolhida somente na validação entre combinações parcimoniosas
+      de contexto pré-decisão. O teste permaneceu reservado para a avaliação final.
+  initialization:
+    support_split: train
+    historical_reward_warm_start: false
+    rationale: >-
+      O treino define apenas quais segmentos possuem suporte. Recompensas históricas
+      não inicializam o posterior para evitar incorporar como prior o viés da política
+      observacional que gerou os dados.
+  state_artifact_path: artifacts/policies/thompson_policy_state.json
+
+replay:
+  evaluation_splits:
+    - validation
+    - test
+  stable_order_column: event_id
+  update_only_on_accepted_events: true
+  reset_to_initial_state_per_split_and_seed: true
+  seeds:
+    start: 1000
+    count: 30
+  bootstrap:
+    iterations: 2000
+    confidence_level: 0.95
+    random_seed: 2026
+  primary_metric: mean_reward
+  candidate_gate:
+    require_positive_mean_lift: true
+    require_positive_lift_ci_lower: true
+
+reports:
+  directory: reports/policy
+  evaluation_path: reports/policy/m4_policy_evaluation.json
+  seed_results_path: reports/policy/m4_seed_results.csv
+  curves_path: reports/policy/m4_replay_curves.csv
+  comparison_plot_path: reports/policy/m4_replay_comparison.png
+  latest_mlflow_run_path: reports/policy/latest_mlflow_run.json
+
+tracking:
+  enabled: true
+  database_path: mlflow.db
+  experiment_name: datathon-7mlet-m4-policy-evaluation
+  run_name: segmented-thompson-replay-v1-1

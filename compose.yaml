@@ -115,6 +115,43 @@ services:
     networks:
       - observability
 
+  mlflow-snapshot:
+    profiles: ["jobs"]
+    image: localhost/datathon-mlflow-snapshot:3.15.1
+    build:
+      context: .
+      dockerfile: Containerfile
+      target: mlflow
+    entrypoint: ["python", "-m", "scripts.snapshot_mlflow"]
+    command:
+      - --source-database
+      - /mlflow/mlflow.db
+      - --source-artifacts
+      - /mlflow/mlruns
+      - --destination-database
+      - /snapshot/mlflow.db
+      - --destination-artifacts
+      - /snapshot/mlruns
+      - --canonical-artifacts-root
+      - /mlflow/mlruns
+      - --reference
+      - /snapshot/reports/modeling/latest_mlflow_run.json
+      - --reference
+      - /snapshot/reports/policy/latest_mlflow_run.json
+    volumes:
+      - mlflow-data:/mlflow:ro
+      - ./:/snapshot
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    networks:
+      - observability
+
   prepare:
     <<: *pipeline-job
     command: ["prepare"]
