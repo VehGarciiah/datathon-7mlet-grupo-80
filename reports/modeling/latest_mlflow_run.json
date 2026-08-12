@@ -1,6 +1,6 @@
 {
   "experiment_id": "1",
-  "run_id": "b5305db512b14afeaaf2cf4b05b6b363",
+  "run_id": "cc61ea7f7f5649fa8c1a30ccca024b88",
   "run_name": "logistic-propensity-v1",
   "tracking_uri": "http://mlflow:5000"
 }

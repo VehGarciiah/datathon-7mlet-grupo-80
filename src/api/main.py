@@ -10,6 +10,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
+from src.api.feature_flags import RuntimeConfigurationProvider
 from src.api.repository import ConflictingFeedbackError, RecommendationNotFoundError
 from src.api.schemas import (
     FeedbackRequest,
@@ -44,6 +45,7 @@ def create_app(
     config_override: APIConfig | None = None,
     database_path: str | Path | None = None,
     policy_mode: str | None = None,
+    runtime_configuration_provider: RuntimeConfigurationProvider | None = None,
 ) -> FastAPI:
     """Cria aplicação injetável para produção local e testes isolados."""
     config = config_override or load_api_config(config_path)
@@ -52,6 +54,7 @@ def create_app(
         config,
         database_path=database_path,
         policy_mode=policy_mode,
+        runtime_configuration_provider=runtime_configuration_provider,
     )
     metrics = ServiceMetrics(service.repository.counts)
     app = FastAPI(
@@ -163,6 +166,9 @@ def create_app(
             exploration=result.is_exploration,
             fallback=result.used_fallback,
         )
+        openfeature_evidence = result.evidence.get("openfeature")
+        if isinstance(openfeature_evidence, dict):
+            metrics.observe_openfeature(openfeature_evidence)
         return result
 
     @app.post("/v1/feedback", response_model=FeedbackResponse)

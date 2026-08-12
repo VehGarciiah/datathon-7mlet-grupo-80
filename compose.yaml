@@ -36,6 +36,11 @@ services:
       target: api
     environment:
       DATATHON_POLICY_MODE: ${DATATHON_POLICY_MODE:-approved}
+      OPENFEATURE_ENABLED: "true"
+      FLAGD_HOST: flagd
+      FLAGD_PORT: "8013"
+      FLAGD_DEADLINE_MS: "750"
+      FLAGD_RETRY_BACKOFF_MS: "1000"
       DATATHON_LOG_FILE: /var/log/datathon/api.jsonl
       DEPLOYMENT_ENVIRONMENT: ${DEPLOYMENT_ENVIRONMENT:-local-compose}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
@@ -54,9 +59,139 @@ services:
       - /tmp
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 4
     depends_on:
       otel-collector:
         condition: service_started
+    restart: unless-stopped
+    networks:
+      - observability
+
+  crm-postgres:
+    image: docker.io/library/postgres:18.4-alpine
+    environment:
+      POSTGRES_DB: ${CRM_DATABASE_NAME:-crm}
+      POSTGRES_USER: crm_owner
+      POSTGRES_PASSWORD: ${CRM_DATABASE_OWNER_PASSWORD:-crm_owner_local_password}
+      CRM_APP_PASSWORD: ${CRM_DATABASE_PASSWORD:-crm_local_password}
+    ports:
+      - "127.0.0.1:${CRM_DATABASE_PORT:-5433}:5432"
+    volumes:
+      - crm-postgres-data:/var/lib/postgresql
+      - ./crm-api/src/main/resources/db/init/00-create-application-role.sh:/docker-entrypoint-initdb.d/00-create-application-role.sh:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 128mb
+    restart: unless-stopped
+    networks:
+      - observability
+
+  flagd:
+    image: ghcr.io/open-feature/flagd:v0.16.1
+    command:
+      - start
+      - --sources=[{"uri":"http://crm-api:8081/internal/openfeature/flags.json","provider":"http","interval":2}]
+      - --log-format=json
+    ports:
+      - "127.0.0.1:${FLAGD_PORT:-8013}:8013"
+      - "127.0.0.1:${FLAGD_MANAGEMENT_PORT:-8014}:8014"
+    healthcheck:
+      test: ["CMD", "/flagd-build", "version"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 4
+    depends_on:
+      crm-api:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      - observability
+
+  crm-api:
+    image: localhost/datathon-crm-api:1.0.0
+    build:
+      context: ./crm-api
+      dockerfile: Containerfile
+    environment:
+      CRM_DATABASE_URL: jdbc:postgresql://crm-postgres:5432/${CRM_DATABASE_NAME:-crm}
+      CRM_DATABASE_USER: crm_app
+      CRM_DATABASE_PASSWORD: ${CRM_DATABASE_PASSWORD:-crm_local_password}
+      CRM_DATABASE_OWNER: crm_owner
+      CRM_DATABASE_OWNER_PASSWORD: ${CRM_DATABASE_OWNER_PASSWORD:-crm_owner_local_password}
+      RECOMMENDATION_API_URL: http://api:8000
+      CRM_SEED_CSV: file:/data/test.csv
+      CRM_ALLOWED_ORIGIN: ${CRM_WEB_ORIGIN:-http://localhost}
+    ports:
+      - "127.0.0.1:${CRM_API_PORT:-8081}:8081"
+    volumes:
+      - ./data/processed/test.csv:/data/test.csv:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    depends_on:
+      crm-postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O - http://127.0.0.1:8081/actuator/health/readiness | grep -q '"status":"UP"'
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 6
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      - observability
+
+  crm-web:
+    image: localhost/datathon-crm-web:1.0.0
+    build:
+      context: ./crm-web
+      dockerfile: Containerfile
+    ports:
+      - "127.0.0.1:${CRM_WEB_PORT:-80}:80"
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    depends_on:
+      crm-api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O - http://127.0.0.1/health | grep -q '^ok$'
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 4
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     networks:
       - observability
@@ -235,6 +370,7 @@ services:
       - prometheus-data:/prometheus
     depends_on:
       - api
+      - flagd
       - process-exporter
       - alertmanager
     security_opt:
@@ -349,6 +485,7 @@ volumes:
   airflow-data:
   alertmanager-data:
   alloy-data:
+  crm-postgres-data:
   grafana-data:
   loki-data:
   mlflow-data:

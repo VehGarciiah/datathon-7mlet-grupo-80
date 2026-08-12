@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from src.api.feature_flags import RuntimeConfiguration, StaticRuntimeConfigurationProvider
 from src.api.main import create_app
 from src.api.service import load_api_config
 from src.evaluation.golden_set import run_golden_set
@@ -154,3 +155,34 @@ def test_adaptive_demo_updates_only_explicit_runtime_state(tmp_path) -> None:
     assert feedback.status_code == 200
     assert feedback.json()["learning_applied"] is True
     assert demo_config.adaptive_runtime_state_path.exists()
+
+
+def test_openfeature_kill_switch_forces_the_approved_baseline(tmp_path) -> None:
+    runtime = RuntimeConfiguration(
+        version=9,
+        policy_mode="adaptive_demo",
+        kill_switch=True,
+        adaptive_traffic_percentage=100,
+        experiment_name="kill-switch-test",
+        deterministic_allocation=True,
+        learning_enabled=True,
+        attribution_window_days=7,
+        structured_logs=True,
+        decision_metrics=True,
+        feedback_metrics=True,
+        configuration_audit=True,
+        trace_sampling_percentage=10,
+        source="flagd",
+    )
+    app = create_app(
+        database_path=tmp_path / "kill-switch.db",
+        runtime_configuration_provider=StaticRuntimeConfigurationProvider(runtime),
+    )
+
+    with TestClient(app) as client:
+        decision = client.post("/v1/recommendations", json=_golden_payload()).json()
+
+    assert decision["policy_id"] == "best_historical_action"
+    assert decision["evidence"]["policy_mode"] == "approved_fixed_kill_switch"
+    assert decision["evidence"]["openfeature"]["configuration_version"] == 9
+    assert decision["evidence"]["openfeature"]["fallback_reason"] == "kill_switch"

@@ -1,0 +1,673 @@
+<main id="conteudo-principal" class="page-shell settings-page" tabindex="-1">
+  <section class="page-heading settings-heading" aria-labelledby="page-title">
+    <div>
+      <p class="eyebrow">Laboratório de políticas</p>
+      <h1 id="page-title">Configurações do ecossistema</h1>
+      <p class="page-description">
+        Ajuste serving, aprendizado e telemetria em tempo real com versionamento e rollback seguro.
+      </p>
+    </div>
+    <div class="heading-actions">
+      <app-fluent-badge [color]="activeConfiguration() ? 'success' : 'warning'">
+        {{ activeConfiguration() ? 'OpenFeature conectado' : 'Somente rascunho local' }}
+      </app-fluent-badge>
+      <app-fluent-button appearance="subtle" (pressed)="restoreDefaults()">
+        <app-fluent-icon slot="start" name="reset" />
+        Restaurar padrão
+      </app-fluent-button>
+      <app-fluent-button
+        appearance="primary"
+        [disabled]="changedCount() === 0 || validationIssues().length > 0"
+        (pressed)="saveDraft()"
+      >
+        <app-fluent-icon slot="start" name="save" />
+        Salvar rascunho
+      </app-fluent-button>
+    </div>
+  </section>
+
+  <div class="scope-notice" role="note">
+    <app-fluent-icon name="beaker" />
+    <div>
+      <strong>Rascunho separado da execução</strong>
+      <p>
+        Salvar mantém o rascunho neste navegador. Ativar cria uma nova versão auditável no
+        PostgreSQL; o flagd a distribui ao motor sem reiniciar os containers.
+      </p>
+    </div>
+  </div>
+
+  @if (liveMessage(); as message) {
+    <div
+      class="message-bar"
+      [class.message-bar--success]="message.kind === 'success'"
+      [class.message-bar--error]="message.kind === 'error'"
+      [attr.role]="message.kind === 'error' ? 'alert' : 'status'"
+      [attr.aria-live]="message.kind === 'error' ? 'assertive' : 'polite'"
+    >
+      <app-fluent-icon
+        [name]="
+          message.kind === 'success' ? 'success' : message.kind === 'error' ? 'error' : 'info'
+        "
+      />
+      <span>{{ message.text }}</span>
+      <app-fluent-button
+        class="icon-only message-dismiss"
+        appearance="transparent"
+        [iconOnly]="true"
+        ariaLabel="Fechar mensagem"
+        (pressed)="dismissMessage()"
+      >
+        <app-fluent-icon name="dismiss" />
+      </app-fluent-button>
+    </div>
+  }
+
+  @if (controlsReady()) {
+    <div class="settings-layout">
+      <aside class="settings-index" aria-label="Seções de configuração">
+        <p class="section-kicker">Nesta página</p>
+        <nav>
+          <a
+            href="#runtime"
+            [class.settings-index-link--active]="activeSection() === 'runtime'"
+            [attr.aria-current]="activeSection() === 'runtime' ? 'location' : null"
+            (click)="navigateToSection($event, 'runtime')"
+            ><app-fluent-icon name="settings" />Runtime</a
+          >
+          <a
+            href="#traffic"
+            [class.settings-index-link--active]="activeSection() === 'traffic'"
+            [attr.aria-current]="activeSection() === 'traffic' ? 'location' : null"
+            (click)="navigateToSection($event, 'traffic')"
+            ><app-fluent-icon name="branch" />Tráfego</a
+          >
+          <a
+            href="#learning"
+            [class.settings-index-link--active]="activeSection() === 'learning'"
+            [attr.aria-current]="activeSection() === 'learning' ? 'location' : null"
+            (click)="navigateToSection($event, 'learning')"
+            ><app-fluent-icon name="data" />Aprendizado</a
+          >
+          <a
+            href="#feedback"
+            [class.settings-index-link--active]="activeSection() === 'feedback'"
+            [attr.aria-current]="activeSection() === 'feedback' ? 'location' : null"
+            (click)="navigateToSection($event, 'feedback')"
+            ><app-fluent-icon name="history" />Feedback</a
+          >
+          <a
+            href="#models"
+            [class.settings-index-link--active]="activeSection() === 'models'"
+            [attr.aria-current]="activeSection() === 'models' ? 'location' : null"
+            (click)="navigateToSection($event, 'models')"
+            ><app-fluent-icon name="brain" />Modelos</a
+          >
+          <a
+            href="#observability"
+            [class.settings-index-link--active]="activeSection() === 'observability'"
+            [attr.aria-current]="activeSection() === 'observability' ? 'location' : null"
+            (click)="navigateToSection($event, 'observability')"
+            ><app-fluent-icon name="pulse" />Observabilidade</a
+          >
+          <a
+            href="#guardrails"
+            [class.settings-index-link--active]="activeSection() === 'guardrails'"
+            [attr.aria-current]="activeSection() === 'guardrails' ? 'location' : null"
+            (click)="navigateToSection($event, 'guardrails')"
+            ><app-fluent-icon name="shield" />Proteções</a
+          >
+        </nav>
+      </aside>
+
+      <div class="settings-content">
+        <section
+          class="current-runtime"
+          [class.current-runtime--warning]="!activeConfiguration()"
+          aria-labelledby="current-runtime-title"
+        >
+          <span class="config-card-icon" [class.config-card-icon--success]="activeConfiguration()"
+            ><app-fluent-icon [name]="activeConfiguration() ? 'success' : 'warning'"
+          /></span>
+          <div>
+            <span>Em execução agora</span>
+            <h2 id="current-runtime-title">{{ activeModeLabel() }}</h2>
+            @if (activeConfiguration(); as active) {
+              <p>
+                Versão {{ active.version }} ativada por {{ active.activatedBy }} em
+                {{ formatActiveAt() }}. Propagação por {{ active.provider }}.
+              </p>
+            } @else {
+              <p>Não foi possível confirmar a configuração ativa na API.</p>
+              <app-fluent-button
+                appearance="outline"
+                [disabled]="configurationLoading()"
+                (pressed)="reloadActiveConfiguration()"
+              >
+                @if (configurationLoading()) {
+                  <app-fluent-spinner
+                    slot="start"
+                    label="Reconectando ao OpenFeature"
+                    size="small"
+                  />
+                }
+                {{ configurationLoading() ? 'Reconectando' : 'Tentar reconectar' }}
+              </app-fluent-button>
+            }
+          </div>
+          @if (activeConfiguration(); as active) {
+            <app-fluent-badge color="success">v{{ active.version }}</app-fluent-badge>
+          } @else {
+            <app-fluent-badge color="warning">Fallback</app-fluent-badge>
+          }
+        </section>
+
+        <section id="runtime" class="config-card" aria-labelledby="runtime-title" tabindex="-1">
+          <header class="config-card-heading">
+            <span class="config-card-icon"><app-fluent-icon name="settings" /></span>
+            <div>
+              <p class="section-kicker">01 · Serving</p>
+              <h2 id="runtime-title">Política de execução</h2>
+              <p>Escolha qual família de decisão receberia as novas recomendações.</p>
+            </div>
+          </header>
+          <div class="control-stack">
+            <app-fluent-dropdown
+              controlId="policy-mode"
+              label="Modo da política"
+              description="Equivale ao DATATHON_POLICY_MODE usado pelo motor de recomendação."
+              helpText="Escolhe a regra que decide o canal. A baseline repete uma estratégia estável; os modos adaptativos podem aprender com novos resultados."
+              [options]="modeOptions"
+              [value]="draft().policyMode"
+              [disabled]="draft().killSwitch"
+              (valueChange)="setMode($event)"
+            />
+            <div class="control-divider"></div>
+            <app-fluent-switch
+              controlId="kill-switch"
+              label="Kill switch operacional"
+              description="Força imediatamente o desenho do tráfego para a baseline aprovada."
+              helpText="É o botão de emergência. Quando ligado, todas as recomendações voltam para a regra estável já validada."
+              [checked]="draft().killSwitch"
+              (checkedChange)="setKillSwitch($event)"
+            />
+          </div>
+        </section>
+
+        <section id="traffic" class="config-card" aria-labelledby="traffic-title" tabindex="-1">
+          <header class="config-card-heading">
+            <span class="config-card-icon"><app-fluent-icon name="branch" /></span>
+            <div>
+              <p class="section-kicker">02 · Experimentação</p>
+              <h2 id="traffic-title">Distribuição de tráfego</h2>
+              <p>Modele um rollout gradual com atribuição reproduzível por oportunidade.</p>
+            </div>
+          </header>
+          <div class="control-stack">
+            <app-fluent-slider
+              controlId="adaptive-traffic"
+              label="Tráfego adaptativo"
+              description="O restante seria atendido pela baseline fixa."
+              helpText="Define quantas de cada 100 oportunidades testariam a regra que aprende. As demais continuam na regra estável."
+              suffix="%"
+              [value]="draft().adaptiveTrafficPercentage"
+              [disabled]="!isAdaptive() || draft().killSwitch"
+              (valueChange)="updateDraft({ adaptiveTrafficPercentage: $event })"
+            />
+            <app-fluent-text-input
+              controlId="experiment-name"
+              label="Identificador do experimento"
+              helpText="É um nome fácil de reconhecer nos relatórios para separar este teste de outros testes."
+              ariaLabel="Identificador do experimento"
+              placeholder="Ex.: demo-thompson-agosto"
+              [value]="draft().experimentName"
+              [disabled]="!isAdaptive() || draft().killSwitch"
+              (valueChange)="updateDraft({ experimentName: $event })"
+            />
+            <div class="control-divider"></div>
+            <app-fluent-switch
+              controlId="deterministic-allocation"
+              label="Alocação determinística"
+              description="Mantém a mesma oportunidade no mesmo grupo durante o experimento."
+              helpText="Garante que a mesma oportunidade não troque de grupo no meio do teste, evitando comparações confusas."
+              [checked]="draft().deterministicAllocation"
+              [disabled]="!isAdaptive() || draft().killSwitch"
+              (checkedChange)="updateDraft({ deterministicAllocation: $event })"
+            />
+          </div>
+        </section>
+
+        <section id="learning" class="config-card" aria-labelledby="learning-title" tabindex="-1">
+          <header class="config-card-heading">
+            <span class="config-card-icon"><app-fluent-icon name="data" /></span>
+            <div>
+              <p class="section-kicker">03 · Política adaptativa</p>
+              <h2 id="learning-title">Aprendizado online</h2>
+              <p>Controle a atualização do posterior sem alterar os parâmetros treinados.</p>
+            </div>
+          </header>
+          <div class="control-stack">
+            <app-fluent-switch
+              controlId="learning-enabled"
+              label="Aplicar feedback ao posterior"
+              description="Atualiza apenas o braço recomendado após um feedback terminal válido."
+              helpText="Quando ligado, cada conversão ou insucesso ajuda a ajustar futuras recomendações do canal que foi usado."
+              [checked]="draft().learningEnabled"
+              [disabled]="!isAdaptive() || draft().killSwitch"
+              (checkedChange)="updateDraft({ learningEnabled: $event })"
+            />
+            <div class="locked-grid" aria-label="Parâmetros congelados da política">
+              <div>
+                <span class="config-label"
+                  >Prior α / β
+                  <app-fluent-help
+                    controlId="prior-alpha-beta"
+                    label="Prior alfa e beta"
+                    text="É o ponto de partida neutro do aprendizado: antes de receber resultados, os dois canais começam com a mesma chance."
+                /></span>
+                <strong>1,0 / 1,0</strong>
+              </div>
+              <div>
+                <span class="config-label"
+                  >Suporte mínimo
+                  <app-fluent-help
+                    controlId="minimum-support"
+                    label="Suporte mínimo"
+                    text="É a quantidade mínima de exemplos de cada canal necessária para confiar no comportamento de um grupo específico."
+                /></span>
+                <strong>100 por ação</strong>
+              </div>
+              <div>
+                <span class="config-label"
+                  >Segmentação
+                  <app-fluent-help
+                    controlId="segmentation"
+                    label="Segmentação"
+                    text="Agrupa oportunidades parecidas pelo mês do contato e pelo resultado do contato anterior para comparar casos semelhantes."
+                /></span>
+                <strong>Mês + resultado anterior</strong>
+              </div>
+              <div>
+                <span class="config-label"
+                  >Fallback esparso
+                  <app-fluent-help
+                    controlId="sparse-fallback"
+                    label="Fallback esparso"
+                    text="Quando um grupo ainda tem poucos exemplos, o sistema usa o aprendizado geral de todas as oportunidades como plano B."
+                /></span>
+                <strong>Posterior global</strong>
+              </div>
+            </div>
+            <p class="locked-note">
+              <app-fluent-icon name="lock" /> Estes valores pertencem ao artefato avaliado e exigem
+              novo treino e replay para mudar.
+            </p>
+          </div>
+        </section>
+
+        <section id="feedback" class="config-card" aria-labelledby="feedback-title" tabindex="-1">
+          <header class="config-card-heading">
+            <span class="config-card-icon"><app-fluent-icon name="history" /></span>
+            <div>
+              <p class="section-kicker">04 · Resultado observado</p>
+              <h2 id="feedback-title">Ciclo de feedback</h2>
+              <p>Defina o tempo em que uma conversão ainda pode ser atribuída à decisão.</p>
+            </div>
+          </header>
+          <div class="control-stack">
+            <app-fluent-slider
+              controlId="attribution-window"
+              label="Janela de atribuição"
+              description="Aceita feedback entre 1 e 30 dias após a recomendação."
+              helpText="Define por quantos dias uma conversão ainda pode ser associada à recomendação que originou o contato."
+              suffix=" dias"
+              [value]="draft().attributionWindowDays"
+              [min]="1"
+              [max]="30"
+              (valueChange)="updateDraft({ attributionWindowDays: $event })"
+            />
+            <div class="invariant-list">
+              <div>
+                <app-fluent-icon name="lock" /><span>Feedback é terminal e idempotente</span>
+                <app-fluent-help
+                  controlId="terminal-feedback"
+                  label="Feedback terminal e idempotente"
+                  text="Cada recomendação recebe um único resultado final. Se a mesma resposta for enviada novamente, ela não é contada duas vezes."
+                />
+              </div>
+              <div>
+                <app-fluent-icon name="lock" /><span>Tolerância futura: 300 segundos</span>
+                <app-fluent-help
+                  controlId="future-tolerance"
+                  label="Tolerância futura"
+                  text="Aceita uma diferença de até cinco minutos entre relógios dos sistemas, evitando rejeitar um resultado válido por pequeno desencontro de horário."
+                />
+              </div>
+              <div>
+                <app-fluent-icon name="lock" /><span
+                  >Eventos tardios ficam somente na auditoria</span
+                >
+                <app-fluent-help
+                  controlId="late-events"
+                  label="Eventos tardios"
+                  text="Resultados recebidos depois do prazo ficam registrados para consulta, mas não mudam o aprendizado do modelo."
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="models" class="config-card" aria-labelledby="models-title" tabindex="-1">
+          <header class="config-card-heading">
+            <span class="config-card-icon"><app-fluent-icon name="brain" /></span>
+            <div>
+              <p class="section-kicker">05 · Artefatos</p>
+              <h2 id="models-title">Modelos e versões</h2>
+              <p>Snapshot somente leitura dos artefatos reproduzíveis ligados ao serving.</p>
+            </div>
+          </header>
+          <dl class="artifact-list">
+            <div>
+              <dt class="config-label">
+                Política fixa
+                <app-fluent-help
+                  controlId="fixed-policy"
+                  label="Política fixa"
+                  text="É a regra estável de segurança: usa o canal com melhor resultado histórico geral e não muda com novos feedbacks."
+                />
+              </dt>
+              <dd><strong>best_historical_action · 1.0.0</strong><span>Rollback aprovado</span></dd>
+            </div>
+            <div>
+              <dt class="config-label">
+                Política adaptativa
+                <app-fluent-help
+                  controlId="adaptive-policy"
+                  label="Política adaptativa"
+                  text="É a regra experimental que pode aprender, ao longo do tempo, qual canal funciona melhor para cada grupo de oportunidades."
+                />
+              </dt>
+              <dd><strong>segmented_thompson_sampling · 1.1.0</strong><span>Candidata</span></dd>
+            </div>
+            <div>
+              <dt class="config-label">
+                Propensão
+                <app-fluent-help
+                  controlId="propensity-model"
+                  label="Modelo de propensão"
+                  text="Estima a chance de uma oportunidade converter com base no contexto disponível antes do contato."
+                />
+              </dt>
+              <dd><strong>logistic_propensity · 1.0.0</strong><span>MLflow M3 · b5305db5</span></dd>
+            </div>
+            <div>
+              <dt class="config-label">
+                Avaliação da política
+                <app-fluent-help
+                  controlId="policy-evaluation"
+                  label="Avaliação da política"
+                  text="É o teste feito com dados históricos e várias ordens possíveis para verificar se a regra adaptativa é consistente antes de ser promovida."
+                />
+              </dt>
+              <dd><strong>Replay com 30 seeds</strong><span>MLflow M4 · c9624a3a</span></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section
+          id="observability"
+          class="config-card"
+          aria-labelledby="observability-title"
+          tabindex="-1"
+        >
+          <header class="config-card-heading">
+            <span class="config-card-icon"><app-fluent-icon name="pulse" /></span>
+            <div>
+              <p class="section-kicker">06 · Telemetria</p>
+              <h2 id="observability-title">Observabilidade</h2>
+              <p>Escolha os sinais necessários para explicar decisões e detectar regressões.</p>
+            </div>
+          </header>
+          <div class="control-stack switch-list">
+            <app-fluent-switch
+              controlId="structured-logs"
+              label="Logs estruturados"
+              description="Inclui correlação, política, versão e resultado sem PII."
+              helpText="Guarda uma trilha organizada do que aconteceu em cada etapa, sem registrar dados pessoais do cliente."
+              [checked]="draft().structuredLogs"
+              (checkedChange)="updateDraft({ structuredLogs: $event })"
+            />
+            <app-fluent-switch
+              controlId="decision-metrics"
+              label="Métricas de decisão"
+              description="Distribuição de ações, fallback, exploração e latência."
+              helpText="Mostra quantas recomendações foram feitas por canal, quantas usaram plano B e quanto tempo levaram."
+              [checked]="draft().decisionMetrics"
+              (checkedChange)="updateDraft({ decisionMetrics: $event })"
+            />
+            <app-fluent-switch
+              controlId="feedback-metrics"
+              label="Métricas de feedback"
+              description="Conversão, atraso de atribuição, duplicidade e descarte."
+              helpText="Acompanha quantos resultados chegaram, quantos converteram e se houve respostas repetidas ou fora do prazo."
+              [checked]="draft().feedbackMetrics"
+              (checkedChange)="updateDraft({ feedbackMetrics: $event })"
+            />
+            <app-fluent-switch
+              controlId="configuration-audit"
+              label="Auditoria de configuração"
+              description="Registra autor, diff, motivo e versão do rollout."
+              helpText="Mantém o histórico de quem mudou uma configuração, o que mudou e por qual motivo."
+              [checked]="draft().configurationAudit"
+              (checkedChange)="updateDraft({ configurationAudit: $event })"
+            />
+            <app-fluent-slider
+              controlId="trace-sampling"
+              label="Amostragem de traces"
+              description="Percentual de decisões enviado ao Tempo via OpenTelemetry."
+              helpText="Escolhe quantas de cada 100 decisões terão o caminho completo guardado para investigar lentidão ou erros."
+              suffix="%"
+              [value]="draft().traceSamplingPercentage"
+              (valueChange)="updateDraft({ traceSamplingPercentage: $event })"
+            />
+          </div>
+        </section>
+
+        <section
+          id="guardrails"
+          class="config-card"
+          aria-labelledby="guardrails-title"
+          tabindex="-1"
+        >
+          <header class="config-card-heading">
+            <span class="config-card-icon config-card-icon--success"
+              ><app-fluent-icon name="shield"
+            /></span>
+            <div>
+              <p class="section-kicker">07 · Invariantes</p>
+              <h2 id="guardrails-title">Proteções não configuráveis</h2>
+              <p>Regras que nenhuma feature flag ou experimento pode contornar.</p>
+            </div>
+          </header>
+          <ul class="guardrail-list">
+            <li>
+              <app-fluent-icon name="success" /><span>Contato exige autorização explícita.</span>
+              <app-fluent-help
+                controlId="authorization-guardrail"
+                label="Autorização explícita"
+                text="O sistema só recomenda um contato quando existe permissão registrada para falar com aquela pessoa."
+              />
+            </li>
+            <li>
+              <app-fluent-icon name="success" /><span>“Não contatar” sempre prevalece.</span>
+              <app-fluent-help
+                controlId="do-not-contact-guardrail"
+                label="Não contatar"
+                text="Mesmo que o modelo encontre uma boa oportunidade, a preferência de não receber contato bloqueia qualquer recomendação."
+              />
+            </li>
+            <li>
+              <app-fluent-icon name="success" /><span
+                >A recomendação usa somente canais elegíveis.</span
+              >
+              <app-fluent-help
+                controlId="eligible-channel-guardrail"
+                label="Canais elegíveis"
+                text="O motor só pode escolher entre os canais que estão disponíveis e autorizados para aquela oportunidade."
+              />
+            </li>
+            <li>
+              <app-fluent-icon name="success" /><span>A resposta nunca afirma causalidade.</span>
+              <app-fluent-help
+                controlId="causal-claim-guardrail"
+                label="Sem afirmação causal"
+                text="A recomendação indica o canal com melhor evidência disponível, mas não promete que ele será a causa da conversão."
+              />
+            </li>
+            <li>
+              <app-fluent-icon name="success" /><span
+                >Atributos de auditoria não entram no modelo.</span
+              >
+              <app-fluent-help
+                controlId="audit-data-guardrail"
+                label="Dados de auditoria"
+                text="Informações usadas apenas para rastrear o processo, como identificadores técnicos, não influenciam a recomendação."
+              />
+            </li>
+          </ul>
+        </section>
+
+        <details class="json-preview">
+          <summary><app-fluent-icon name="document" />Ver configuração reproduzível</summary>
+          <pre><code>{{ draftJson() }}</code></pre>
+        </details>
+      </div>
+
+      <aside class="review-panel" aria-labelledby="review-title">
+        <div class="review-card">
+          <div class="review-heading">
+            <div>
+              <p class="section-kicker">Revisão</p>
+              <h2 id="review-title">Impacto do rascunho</h2>
+            </div>
+            @if (activationChangedCount() > 0) {
+              <app-fluent-badge color="brand"
+                >{{ activationChangedCount() }} alterações</app-fluent-badge
+              >
+            } @else {
+              <app-fluent-badge color="subtle">Sem alterações</app-fluent-badge>
+            }
+          </div>
+
+          <dl class="review-summary">
+            <div>
+              <dt>Modo</dt>
+              <dd>{{ modeLabel() }}</dd>
+            </div>
+            <div>
+              <dt>Tráfego adaptativo</dt>
+              <dd>{{ draft().adaptiveTrafficPercentage }}%</dd>
+            </div>
+            <div>
+              <dt>Aprendizado</dt>
+              <dd>{{ draft().learningEnabled ? 'Ativo' : 'Inativo' }}</dd>
+            </div>
+            <div>
+              <dt>Último rascunho</dt>
+              <dd>{{ formatSavedAt() }}</dd>
+            </div>
+            <div>
+              <dt>Versão ativa</dt>
+              <dd>{{ activeConfiguration()?.version ?? 'Indisponível' }}</dd>
+            </div>
+          </dl>
+
+          @if (validationIssues().length > 0) {
+            <div class="review-block review-block--warning" role="alert">
+              <strong><app-fluent-icon name="warning" />Antes de salvar</strong>
+              <ul>
+                @for (issue of validationIssues(); track issue) {
+                  <li>{{ issue }}</li>
+                }
+              </ul>
+            </div>
+          }
+
+          <div class="review-block">
+            <strong>O que mudaria</strong>
+            <ul>
+              @for (note of impactNotes(); track note) {
+                <li>{{ note }}</li>
+              }
+            </ul>
+          </div>
+
+          <div class="activation-boundary">
+            <app-fluent-icon name="shield" />
+            <div>
+              <strong>Ativação versionada</strong>
+              <p>
+                Informe quem opera e o motivo. Uma versão concorrente bloqueia esta ativação para
+                evitar sobrescrita silenciosa.
+              </p>
+            </div>
+          </div>
+          <div class="activation-fields">
+            <app-fluent-text-input
+              controlId="activation-operator"
+              label="Operador responsável"
+              description="Nome registrado no histórico de configurações."
+              ariaLabel="Operador responsável"
+              placeholder="Ex.: Jean Bezerra"
+              [value]="activationOperator()"
+              [disabled]="activating()"
+              (valueChange)="setActivationOperator($event)"
+            />
+            <app-fluent-text-input
+              controlId="activation-reason"
+              label="Motivo da alteração"
+              description="Use pelo menos 10 caracteres para explicar a decisão."
+              ariaLabel="Motivo da alteração"
+              placeholder="Ex.: Demonstração do rollout adaptativo"
+              [value]="activationReason()"
+              [disabled]="activating()"
+              (valueChange)="setActivationReason($event)"
+            />
+          </div>
+          <app-fluent-button
+            class="stretch"
+            appearance="primary"
+            [disabled]="!canActivate()"
+            (pressed)="activateConfiguration()"
+          >
+            {{ activating() ? 'Ativando configuração...' : 'Ativar configuração' }}
+          </app-fluent-button>
+          <p
+            class="activation-guidance"
+            [class.activation-guidance--ready]="canActivate()"
+            role="status"
+          >
+            <app-fluent-icon [name]="canActivate() ? 'success' : 'info'" />
+            {{ activationGuidance() }}
+          </p>
+          <app-fluent-button
+            class="stretch"
+            appearance="subtle"
+            [disabled]="changedCount() === 0"
+            (pressed)="discardChanges()"
+          >
+            Descartar alterações
+          </app-fluent-button>
+        </div>
+      </aside>
+    </div>
+  } @else {
+    <div class="settings-loading" role="status">
+      <app-fluent-spinner label="Preparando controles de configuração" size="large" />
+      <div>
+        <strong>Preparando o laboratório</strong>
+        <p>Carregando os controles avançados de forma isolada da operação.</p>
+      </div>
+    </div>
+  }
+</main>

@@ -1,0 +1,75 @@
+<a class="skip-link" href="#conteudo-principal">Ir para o conteúdo principal</a>
+
+<header class="app-header">
+  <div class="header-content">
+    <a class="brand" routerLink="/" aria-label="CRM de recomendações — início">
+      <span class="brand-mark" aria-hidden="true">C</span>
+      <span class="brand-copy">
+        <strong>CRM de recomendações</strong>
+        <span>FIAP · Grupo 101</span>
+      </span>
+    </a>
+
+    <nav class="primary-navigation" aria-label="Navegação principal">
+      <a
+        class="primary-nav-link"
+        routerLink="/"
+        routerLinkActive="primary-nav-link--active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        ariaCurrentWhenActive="page"
+        aria-label="Operação"
+      >
+        <app-fluent-icon name="target" />
+        <span>Operação</span>
+      </a>
+      <a
+        class="primary-nav-link"
+        routerLink="/configuracoes"
+        routerLinkActive="primary-nav-link--active"
+        ariaCurrentWhenActive="page"
+        aria-label="Configurações"
+      >
+        <app-fluent-icon name="settings" />
+        <span>Configurações</span>
+      </a>
+    </nav>
+
+    <nav class="header-actions" aria-label="Acessos do sistema">
+      <span class="service-status" aria-live="polite">
+        <span
+          class="status-dot"
+          [class.status-dot--connected]="apiState() === 'connected'"
+          [class.status-dot--unavailable]="apiState() === 'unavailable'"
+          aria-hidden="true"
+        ></span>
+        {{
+          apiState() === 'connected'
+            ? 'API conectada'
+            : apiState() === 'unavailable'
+              ? 'API indisponível'
+              : 'Conectando à API'
+        }}
+      </span>
+      <a class="header-link" href="/swagger-ui/index.html" target="_blank" rel="noopener">
+        Swagger
+        <app-fluent-icon name="open" />
+      </a>
+      <app-fluent-button
+        class="icon-only"
+        appearance="subtle"
+        [iconOnly]="true"
+        [ariaLabel]="theme.isDark() ? 'Ativar tema claro' : 'Ativar tema escuro'"
+        (pressed)="theme.toggle()"
+      >
+        <app-fluent-icon [name]="theme.isDark() ? 'sun' : 'moon'" />
+      </app-fluent-button>
+    </nav>
+  </div>
+</header>
+
+<router-outlet />
+
+<footer class="app-footer">
+  <span>Datathon FIAP · Machine Learning Engineering</span>
+  <span>Jean Carlos · Sofia Couto · Gabriel Lucas · Veronica Nunes</span>
+</footer>

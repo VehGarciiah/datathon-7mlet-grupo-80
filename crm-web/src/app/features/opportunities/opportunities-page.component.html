@@ -1,0 +1,609 @@
+<main id="conteudo-principal" class="page-shell" tabindex="-1">
+  <section class="page-heading" aria-labelledby="page-title">
+    <div>
+      <p class="eyebrow">Operação de campanhas</p>
+      <h1 id="page-title">Priorize o próximo contato</h1>
+      <p class="page-description">
+        Consulte oportunidades reais da base, confirme as permissões e peça ao motor o canal mais
+        indicado para cada contato.
+      </p>
+    </div>
+    <app-fluent-button
+      appearance="outline"
+      (pressed)="refresh()"
+      [disabled]="pageLoading() || eligibilityChanged()"
+    >
+      <app-fluent-icon slot="start" name="refresh" />
+      Atualizar dados
+    </app-fluent-button>
+  </section>
+
+  @if (liveMessage(); as message) {
+    <div
+      class="message-bar"
+      [class.message-bar--error]="message.kind === 'error'"
+      [class.message-bar--success]="message.kind === 'success'"
+      [attr.role]="message.kind === 'error' ? 'alert' : 'status'"
+      [attr.aria-live]="message.kind === 'error' ? 'assertive' : 'polite'"
+    >
+      <app-fluent-icon
+        [name]="
+          message.kind === 'error' ? 'error' : message.kind === 'success' ? 'success' : 'info'
+        "
+      />
+      <span>{{ message.text }}</span>
+      <app-fluent-button
+        class="icon-only message-dismiss"
+        appearance="transparent"
+        [iconOnly]="true"
+        ariaLabel="Fechar mensagem"
+        (pressed)="dismissMessage()"
+      >
+        <app-fluent-icon name="dismiss" />
+      </app-fluent-button>
+    </div>
+  }
+
+  <section class="summary-grid" aria-label="Resumo da fila atual">
+    <article class="summary-card">
+      <span class="summary-icon summary-icon--brand"><app-fluent-icon name="people" /></span>
+      <span class="summary-copy">
+        <span>Total de oportunidades</span>
+        <strong>{{ totalElements().toLocaleString('pt-BR') }}</strong>
+      </span>
+    </article>
+    <article class="summary-card">
+      <span class="summary-icon summary-icon--success"><app-fluent-icon name="success" /></span>
+      <span class="summary-copy">
+        <span>Autorizadas nesta página</span>
+        <strong>{{ authorizedOnPage() }}</strong>
+      </span>
+    </article>
+    <article class="summary-card">
+      <span class="summary-icon summary-icon--informative"><app-fluent-icon name="history" /></span>
+      <span class="summary-copy">
+        <span>Com histórico nesta página</span>
+        <strong>{{ historicalOnPage() }}</strong>
+      </span>
+    </article>
+  </section>
+
+  <div class="workspace">
+    <section class="queue-panel" aria-labelledby="queue-title" [attr.aria-busy]="pageLoading()">
+      <div class="panel-heading">
+        <div>
+          <p class="section-kicker">Fila de trabalho</p>
+          <h2 id="queue-title">Oportunidades</h2>
+        </div>
+        @if (pageData(); as page) {
+          <span class="result-count"
+            >{{ page.totalElements.toLocaleString('pt-BR') }} resultados</span
+          >
+        }
+      </div>
+
+      <div class="queue-toolbar">
+        <app-fluent-text-input
+          ariaLabel="Buscar por código da oportunidade"
+          placeholder="Buscar por código"
+          [value]="search()"
+          [disabled]="eligibilityChanged()"
+          (valueChange)="onSearchChange($event)"
+        >
+          <app-fluent-icon slot="start" name="search" />
+        </app-fluent-text-input>
+        @if (search()) {
+          <app-fluent-button
+            appearance="subtle"
+            [disabled]="eligibilityChanged()"
+            (pressed)="clearSearch()"
+            >Limpar busca</app-fluent-button
+          >
+        }
+      </div>
+
+      @if (pageError()) {
+        <div class="state-card state-card--error" role="alert">
+          <app-fluent-icon name="error" />
+          <div>
+            <h3>Não foi possível carregar a fila</h3>
+            <p>{{ pageError() }}</p>
+            <app-fluent-button appearance="outline" (pressed)="refresh()"
+              >Tentar novamente</app-fluent-button
+            >
+          </div>
+        </div>
+      } @else if (pageLoading() && !pageData()) {
+        <div class="state-card" role="status">
+          <app-fluent-spinner label="Carregando oportunidades" size="large" />
+          <div>
+            <h3>Carregando oportunidades</h3>
+            <p>Estamos consultando a fila no CRM.</p>
+          </div>
+        </div>
+      } @else if (opportunities().length === 0) {
+        <div class="state-card">
+          <app-fluent-icon name="search" />
+          <div>
+            <h3>Nenhuma oportunidade encontrada</h3>
+            <p>Revise o código informado ou limpe a busca.</p>
+            @if (search()) {
+              <app-fluent-button appearance="outline" (pressed)="clearSearch()"
+                >Limpar busca</app-fluent-button
+              >
+            }
+          </div>
+        </div>
+      } @else {
+        <div class="list-header" aria-hidden="true">
+          <span>Oportunidade</span>
+          <span>Histórico</span>
+          <span>Canais</span>
+          <span>Status</span>
+        </div>
+        <ul class="opportunity-list" aria-label="Oportunidades disponíveis">
+          @for (item of opportunities(); track item.id) {
+            <li>
+              <button
+                class="opportunity-row"
+                type="button"
+                [class.opportunity-row--selected]="selectedId() === item.id"
+                [attr.aria-pressed]="selectedId() === item.id"
+                (click)="selectOpportunity(item)"
+              >
+                <span class="opportunity-identity">
+                  <span class="avatar" aria-hidden="true">{{ item.externalId.slice(-2) }}</span>
+                  <span>
+                    <strong>{{ item.externalId }}</strong>
+                    <small>#{{ item.id }}</small>
+                  </span>
+                </span>
+                <span class="row-value" data-label="Histórico">
+                  {{ outcomeLabel(item.previousOutcome) }}
+                </span>
+                <span class="channel-list" data-label="Canais">
+                  @for (channel of item.eligibleChannels; track channel) {
+                    <span class="channel-item">
+                      <app-fluent-icon [name]="channelIcon(channel)" />
+                      {{ channelLabel(channel) }}
+                    </span>
+                  }
+                </span>
+                <span class="row-status" data-label="Status">
+                  <app-fluent-badge [color]="statusColor(item)">{{
+                    statusLabel(item)
+                  }}</app-fluent-badge>
+                </span>
+              </button>
+            </li>
+          }
+        </ul>
+
+        @if (pageData(); as page) {
+          <footer class="pagination" aria-label="Paginação da fila">
+            <span
+              >{{ firstVisibleItem() }}–{{ lastVisibleItem() }} de
+              {{ page.totalElements.toLocaleString('pt-BR') }}</span
+            >
+            <div>
+              <app-fluent-button
+                class="icon-only"
+                appearance="subtle"
+                [iconOnly]="true"
+                ariaLabel="Página anterior"
+                [disabled]="!hasPreviousPage() || pageLoading() || eligibilityChanged()"
+                (pressed)="goToPage(-1)"
+                ><app-fluent-icon name="previous"
+              /></app-fluent-button>
+              <span>Página {{ page.page + 1 }} de {{ page.totalPages }}</span>
+              <app-fluent-button
+                class="icon-only"
+                appearance="subtle"
+                [iconOnly]="true"
+                ariaLabel="Próxima página"
+                [disabled]="!hasNextPage() || pageLoading() || eligibilityChanged()"
+                (pressed)="goToPage(1)"
+                ><app-fluent-icon name="next"
+              /></app-fluent-button>
+            </div>
+          </footer>
+        }
+      }
+
+      @if (pageLoading() && pageData()) {
+        <div class="panel-loading" role="status">
+          <app-fluent-spinner label="Atualizando a fila" size="small" />
+          Atualizando
+        </div>
+      }
+    </section>
+
+    <aside
+      id="detail-panel"
+      class="detail-panel"
+      aria-labelledby="detail-title"
+      [attr.aria-busy]="detailLoading()"
+    >
+      @if (detailLoading()) {
+        <div class="state-card detail-state" role="status">
+          <app-fluent-spinner label="Carregando detalhes" size="large" />
+          <div>
+            <h2 id="detail-title">Carregando detalhes</h2>
+            <p>Consultando elegibilidade e recomendações.</p>
+          </div>
+        </div>
+      } @else if (detailError()) {
+        <div class="state-card state-card--error detail-state" role="alert">
+          <app-fluent-icon name="error" />
+          <div>
+            <h2 id="detail-title">Detalhes indisponíveis</h2>
+            <p>{{ detailError() }}</p>
+            <app-fluent-button appearance="outline" (pressed)="retryDetail()"
+              >Tentar novamente</app-fluent-button
+            >
+          </div>
+        </div>
+      } @else if (selected(); as item) {
+        <div class="detail-heading">
+          <div class="detail-title-row">
+            <span class="avatar avatar--large" aria-hidden="true">{{
+              item.externalId.slice(-2)
+            }}</span>
+            <div>
+              <p class="section-kicker">Oportunidade selecionada</p>
+              <h2 id="detail-title">{{ item.externalId }}</h2>
+              <p>Registro #{{ item.id }} · Criado em {{ formatDate(item.createdAt) }}</p>
+            </div>
+          </div>
+          <app-fluent-badge [color]="statusColor(item)">{{ statusLabel(item) }}</app-fluent-badge>
+        </div>
+
+        <section class="detail-section" aria-labelledby="eligibility-title">
+          <div class="section-title-row">
+            <div>
+              <h3 id="eligibility-title">Elegibilidade de contato</h3>
+              <p>Confirme consentimento e canais antes de pedir uma recomendação.</p>
+            </div>
+          </div>
+          <div class="eligibility-form">
+            <app-fluent-checkbox
+              controlId="contact-authorized"
+              [checked]="draftAuthorized()"
+              [disabled]="eligibilitySaving()"
+              (checkedChange)="setAuthorized($event)"
+              >Contato autorizado</app-fluent-checkbox
+            >
+            <app-fluent-checkbox
+              controlId="do-not-contact"
+              [checked]="draftDoNotContact()"
+              [disabled]="eligibilitySaving()"
+              (checkedChange)="setDoNotContact($event)"
+              >Não contatar</app-fluent-checkbox
+            >
+            <fieldset>
+              <legend>Canais elegíveis</legend>
+              <div class="channel-options">
+                <app-fluent-checkbox
+                  controlId="channel-cellphone"
+                  [checked]="draftCellphone()"
+                  [disabled]="eligibilitySaving()"
+                  (checkedChange)="draftCellphone.set($event)"
+                  >Celular</app-fluent-checkbox
+                >
+                <app-fluent-checkbox
+                  controlId="channel-landline"
+                  [checked]="draftLandline()"
+                  [disabled]="eligibilitySaving()"
+                  (checkedChange)="draftLandline.set($event)"
+                  >Telefone</app-fluent-checkbox
+                >
+              </div>
+            </fieldset>
+          </div>
+          @if (eligibilityChanged()) {
+            <div class="unsaved-notice" role="status">
+              <app-fluent-icon name="warning" />
+              <span>Existem alterações não salvas. Elas ainda não afetam a recomendação.</span>
+            </div>
+          }
+          <div class="eligibility-actions">
+            <app-fluent-button
+              appearance="outline"
+              [disabled]="!eligibilityChanged() || eligibilitySaving()"
+              (pressed)="saveEligibility()"
+            >
+              @if (eligibilitySaving()) {
+                <app-fluent-spinner slot="start" label="Salvando elegibilidade" size="small" />
+              }
+              {{ eligibilitySaving() ? 'Salvando' : 'Salvar elegibilidade' }}
+            </app-fluent-button>
+            @if (eligibilityChanged()) {
+              <app-fluent-button
+                appearance="subtle"
+                [disabled]="eligibilitySaving()"
+                (pressed)="discardEligibilityChanges()"
+                >Descartar alterações</app-fluent-button
+              >
+            }
+          </div>
+        </section>
+
+        <section class="recommendation-section" aria-labelledby="recommendation-title">
+          <div class="ai-disclosure">
+            <span class="summary-icon summary-icon--brand"><app-fluent-icon name="brain" /></span>
+            <div>
+              <strong>Recomendação assistida por modelo</strong>
+              <p>
+                Usa o contexto da campanha e somente canais autorizados. A sugestão não comprova
+                causalidade; a decisão e o feedback continuam sob controle da pessoa operadora.
+              </p>
+            </div>
+          </div>
+
+          <div class="section-title-row recommendation-heading">
+            <div>
+              <h3 id="recommendation-title">Canal recomendado</h3>
+              <p>Solicite uma nova decisão após revisar a elegibilidade.</p>
+            </div>
+            <app-fluent-button
+              appearance="primary"
+              [disabled]="!canRecommend() || recommendationCreating()"
+              (pressed)="createRecommendation()"
+            >
+              @if (recommendationCreating()) {
+                <app-fluent-spinner slot="start" label="Gerando recomendação" size="small" />
+              } @else {
+                <app-fluent-icon slot="start" name="sparkle" />
+              }
+              Gerar recomendação
+            </app-fluent-button>
+          </div>
+
+          @if (!canRecommend()) {
+            <p class="inline-warning" role="note">
+              <app-fluent-icon name="info" />
+              @if (eligibilityChanged()) {
+                Salve a elegibilidade antes de gerar uma recomendação.
+              } @else {
+                Autorize o contato, remova “Não contatar” e mantenha ao menos um canal elegível.
+              }
+            </p>
+          }
+
+          @if (latestRecommendation(); as recommendation) {
+            <article class="recommendation-card">
+              <div class="recommendation-result">
+                <span class="recommended-icon"
+                  ><app-fluent-icon [name]="channelIcon(recommendation.recommendedChannel)"
+                /></span>
+                <div>
+                  <span>Melhor canal disponível</span>
+                  <strong>{{ channelLabel(recommendation.recommendedChannel) }}</strong>
+                </div>
+                <app-fluent-badge color="brand"
+                  >Modelo {{ recommendation.modelVersion }}</app-fluent-badge
+                >
+              </div>
+              <p class="recommendation-reason">{{ recommendation.reason }}</p>
+              <dl class="decision-metadata">
+                <div>
+                  <dt>Política</dt>
+                  <dd>{{ recommendation.policyId }} · {{ recommendation.policyVersion }}</dd>
+                </div>
+                <div>
+                  <dt>Gerada em</dt>
+                  <dd>{{ formatDate(recommendation.createdAt) }}</dd>
+                </div>
+                <div>
+                  <dt>Exploração</dt>
+                  <dd>{{ recommendation.exploration ? 'Sim' : 'Não' }}</dd>
+                </div>
+                <div>
+                  <dt>Fallback</dt>
+                  <dd>{{ recommendation.usedFallback ? 'Utilizado' : 'Não utilizado' }}</dd>
+                </div>
+              </dl>
+
+              @let feedback = feedbackStatus(recommendation);
+              @if (feedback.kind !== 'none') {
+                <div class="feedback-result">
+                  <app-fluent-icon [name]="feedback.icon" />
+                  <div>
+                    <span class="feedback-result-heading">
+                      <strong>{{ feedback.title }}</strong>
+                      <app-fluent-badge [color]="feedback.badgeColor">{{
+                        feedback.historyLabel
+                      }}</app-fluent-badge>
+                    </span>
+                    <span>{{ feedback.description }}</span>
+                    @if (feedback.reason) {
+                      <small>{{ feedback.reason }}</small>
+                    }
+                  </div>
+                </div>
+              }
+              @if (!feedback.terminal) {
+                <div class="feedback-block">
+                  <div>
+                    <strong>Registre o resultado</strong>
+                    <p>O feedback é terminal e ajuda a acompanhar a decisão.</p>
+                  </div>
+                  <div class="feedback-actions">
+                    <app-fluent-button
+                      appearance="outline"
+                      [disabled]="isFeedbackBusy(recommendation.id)"
+                      (pressed)="requestFeedback($event, recommendation, 1)"
+                      ><app-fluent-icon slot="start" name="success" />Converteu</app-fluent-button
+                    >
+                    <app-fluent-button
+                      appearance="outline"
+                      [disabled]="isFeedbackBusy(recommendation.id)"
+                      (pressed)="requestFeedback($event, recommendation, 0)"
+                      ><app-fluent-icon slot="start" name="error" />Não converteu</app-fluent-button
+                    >
+                    @if (item.historicalOutcomeAvailable) {
+                      <app-fluent-button
+                        appearance="subtle"
+                        [disabled]="isFeedbackBusy(recommendation.id)"
+                        (pressed)="requestHistoricalSimulation($event, recommendation)"
+                        ><app-fluent-icon slot="start" name="history" />Simular
+                        histórico</app-fluent-button
+                      >
+                    }
+                  </div>
+                </div>
+                @if (feedbackConfirmation(); as pending) {
+                  @if (pending.recommendation.id === recommendation.id) {
+                    <div
+                      id="feedback-confirmation"
+                      class="feedback-confirmation"
+                      role="alertdialog"
+                      aria-modal="false"
+                      aria-labelledby="feedback-confirmation-title"
+                      aria-describedby="feedback-confirmation-description"
+                      tabindex="-1"
+                    >
+                      <div>
+                        <strong id="feedback-confirmation-title">
+                          @if (pending.kind === 'historical') {
+                            Aplicar o resultado histórico?
+                          } @else if (pending.reward === 1) {
+                            Confirmar conversão?
+                          } @else {
+                            Confirmar contato sem conversão?
+                          }
+                        </strong>
+                        <p id="feedback-confirmation-description">
+                          O feedback é terminal e não poderá ser alterado. Quando o aprendizado
+                          estiver ativo, ele também poderá atualizar a política adaptativa.
+                        </p>
+                      </div>
+                      <div class="feedback-confirmation-actions">
+                        <app-fluent-button appearance="primary" (pressed)="confirmFeedback()"
+                          >Confirmar resultado</app-fluent-button
+                        >
+                        <app-fluent-button
+                          appearance="subtle"
+                          (pressed)="cancelFeedbackConfirmation()"
+                          >Cancelar</app-fluent-button
+                        >
+                      </div>
+                    </div>
+                  }
+                }
+                @if (isFeedbackBusy(recommendation.id)) {
+                  <div class="feedback-progress" role="status">
+                    <app-fluent-spinner label="Registrando resultado" size="small" />
+                    Registrando resultado
+                  </div>
+                }
+              }
+            </article>
+          } @else {
+            <div class="recommendation-empty">
+              <app-fluent-icon name="navigation" />
+              <div>
+                <strong>Nenhuma recomendação emitida</strong>
+                <p>
+                  Quando estiver tudo certo, gere a primeira recomendação para esta oportunidade.
+                </p>
+              </div>
+            </div>
+          }
+        </section>
+
+        <section class="detail-section context-section" aria-labelledby="context-title">
+          <div class="section-title-row">
+            <div>
+              <h3 id="context-title">Contexto usado pelo motor</h3>
+              <p>Dados operacionais e econômicos enviados nesta oportunidade.</p>
+            </div>
+          </div>
+          <dl class="context-grid">
+            <div>
+              <dt>Mês e dia</dt>
+              <dd>{{ item.month }} · {{ item.weekday }}</dd>
+            </div>
+            <div>
+              <dt>Resultado anterior</dt>
+              <dd>{{ outcomeLabel(item.previousOutcome) }}</dd>
+            </div>
+            <div>
+              <dt>Contatos anteriores</dt>
+              <dd>{{ item.previousCampaignContacts }}</dd>
+            </div>
+            <div>
+              <dt>Tentativas atuais</dt>
+              <dd>{{ item.currentCampaignPreviousAttempts }}</dd>
+            </div>
+            <div>
+              <dt>Dias desde o contato</dt>
+              <dd>{{ formatNumber(item.daysSincePreviousContact, 0) }}</dd>
+            </div>
+            <div>
+              <dt>Euribor 3 meses</dt>
+              <dd>{{ formatNumber(item.euribor3Months, 3) }}</dd>
+            </div>
+            <div>
+              <dt>Índice de preços</dt>
+              <dd>{{ formatNumber(item.consumerPriceIndex, 3) }}</dd>
+            </div>
+            <div>
+              <dt>Confiança do consumidor</dt>
+              <dd>{{ formatNumber(item.consumerConfidenceIndex) }}</dd>
+            </div>
+          </dl>
+        </section>
+
+        @if (recommendations().length > 1) {
+          <section class="detail-section" aria-labelledby="history-title">
+            <div class="section-title-row">
+              <div>
+                <h3 id="history-title">Histórico de decisões</h3>
+                <p>{{ recommendations().length }} recomendações emitidas para esta oportunidade.</p>
+              </div>
+            </div>
+            <ol class="decision-history">
+              @for (
+                recommendation of recommendations();
+                track recommendation.id;
+                let index = $index
+              ) {
+                @let historyFeedback = feedbackStatus(recommendation);
+                <li>
+                  <span class="history-marker" aria-hidden="true"></span>
+                  <div class="history-entry">
+                    <div class="history-decision">
+                      <strong>{{ channelLabel(recommendation.recommendedChannel) }}</strong>
+                      <span>{{ formatDate(recommendation.createdAt) }}</span>
+                      @if (index === 0) {
+                        <app-fluent-badge color="brand">Atual</app-fluent-badge>
+                      }
+                    </div>
+                    <div class="history-feedback">
+                      <app-fluent-icon [name]="historyFeedback.icon" />
+                      <div class="history-feedback-copy">
+                        <app-fluent-badge [color]="historyFeedback.badgeColor">{{
+                          historyFeedback.historyLabel
+                        }}</app-fluent-badge>
+                        <small>{{ historyFeedback.historyDetail }}</small>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              }
+            </ol>
+          </section>
+        }
+      } @else {
+        <div class="state-card detail-state">
+          <app-fluent-icon name="contact" />
+          <div>
+            <h2 id="detail-title">Selecione uma oportunidade</h2>
+            <p>Os detalhes e as ações aparecerão aqui.</p>
+          </div>
+        </div>
+      }
+    </aside>
+  </div>
+</main>

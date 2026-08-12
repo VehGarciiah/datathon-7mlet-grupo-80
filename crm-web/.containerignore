@@ -1,0 +1,10 @@
+node_modules
+dist
+.angular
+.git
+.idea
+.vscode
+README.md
+npm-debug.log
+playwright-report
+test-results

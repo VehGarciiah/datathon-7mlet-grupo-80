@@ -241,6 +241,22 @@ class ServiceMetrics:
             ("policy_id", "policy_version", "policy_mode", "model_version"),
             registry=self.registry,
         )
+        self.openfeature_evaluations = Counter(
+            "datathon_openfeature_evaluations_total",
+            "Avaliações de configuração por origem e modo solicitado.",
+            ("source", "requested_policy_mode"),
+            registry=self.registry,
+        )
+        self.openfeature_configuration_version = Gauge(
+            "datathon_openfeature_configuration_version",
+            "Versão da configuração avaliada na decisão mais recente.",
+            registry=self.registry,
+        )
+        self.openfeature_kill_switch = Gauge(
+            "datathon_openfeature_kill_switch",
+            "1 quando o kill switch avaliado na decisão mais recente estava ativo.",
+            registry=self.registry,
+        )
 
     def set_policy_info(
         self,
@@ -300,6 +316,17 @@ class ServiceMetrics:
         ).inc()
         if result_status == "recorded":
             self.feedback_delay.observe(max(delay_seconds, 0.0))
+
+    def observe_openfeature(self, evidence: dict[str, Any]) -> None:
+        """Registra somente atributos operacionais de baixa cardinalidade."""
+        self.openfeature_evaluations.labels(
+            source=str(evidence.get("source", "unknown")),
+            requested_policy_mode=str(evidence.get("requested_policy_mode", "unknown")),
+        ).inc()
+        self.openfeature_configuration_version.set(
+            max(0, int(evidence.get("configuration_version", 0)))
+        )
+        self.openfeature_kill_switch.set(1 if evidence.get("kill_switch") else 0)
 
     def observe_domain_error(self, operation: str, reason: str) -> None:
         self.domain_errors.labels(operation=operation, reason=reason).inc()

@@ -44,6 +44,12 @@ def test_api_metrics_are_aggregatable_and_do_not_expose_identifiers(tmp_path) ->
     assert expected_feedback in metrics
     assert "datathon_feedback_delay_seconds_bucket" in metrics
     assert "datathon_persisted_recommendations_total 1.0" in metrics
+    expected_openfeature = (
+        'datathon_openfeature_evaluations_total{requested_policy_mode="approved",'
+        'source="static"} 1.0'
+    )
+    assert expected_openfeature in metrics
+    assert "datathon_openfeature_configuration_version 1.0" in metrics
     assert decision["recommendation_id"] not in metrics
 
 

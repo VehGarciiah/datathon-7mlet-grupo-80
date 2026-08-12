@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: crm-api
+  datasource:
+    url: ${CRM_DATABASE_URL:jdbc:postgresql://localhost:5433/crm}
+    username: ${CRM_DATABASE_USER:crm_app}
+    password: ${CRM_DATABASE_PASSWORD:crm_local_password}
+    hikari:
+      maximum-pool-size: ${CRM_DATABASE_POOL_SIZE:10}
+      schema: crm
+  flyway:
+    enabled: true
+    create-schemas: true
+    default-schema: crm
+    schemas: crm
+    user: ${CRM_DATABASE_OWNER:crm_owner}
+    password: ${CRM_DATABASE_OWNER_PASSWORD:crm_owner_local_password}
+
+server:
+  port: ${CRM_API_PORT:8081}
+  shutdown: graceful
+
+springdoc:
+  swagger-ui:
+    path: /
+    disable-swagger-default-url: true
+    operations-sorter: method
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+      group:
+        readiness:
+          include: readinessState,db,recommendationApi
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+info:
+  application:
+    name: CRM Simulator API
+    description: Simulador de CRM integrado ao motor de recomendações do Datathon
+
+crm:
+  recommendation-api:
+    base-url: ${RECOMMENDATION_API_URL:http://localhost:8000}
+    connect-timeout: ${RECOMMENDATION_API_CONNECT_TIMEOUT:2s}
+    read-timeout: ${RECOMMENDATION_API_READ_TIMEOUT:5s}
+  seed:
+    enabled: ${CRM_SEED_ENABLED:true}
+    csv-location: ${CRM_SEED_CSV:file:../data/processed/test.csv}
+  cors:
+    allowed-origin: ${CRM_ALLOWED_ORIGIN:http://localhost:4200}

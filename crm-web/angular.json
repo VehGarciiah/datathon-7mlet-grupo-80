@@ -1,0 +1,110 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "cli": {
+    "packageManager": "npm"
+  },
+  "newProjectRoot": "projects",
+  "projects": {
+    "crm-web": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss",
+          "skipTests": true
+        },
+        "@schematics/angular:class": {
+          "skipTests": true
+        },
+        "@schematics/angular:directive": {
+          "skipTests": true
+        },
+        "@schematics/angular:guard": {
+          "skipTests": true
+        },
+        "@schematics/angular:interceptor": {
+          "skipTests": true
+        },
+        "@schematics/angular:pipe": {
+          "skipTests": true
+        },
+        "@schematics/angular:resolver": {
+          "skipTests": true
+        },
+        "@schematics/angular:service": {
+          "skipTests": true
+        }
+      },
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "src/main.ts",
+            "polyfills": ["zone.js"],
+            "tsConfig": "tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "public"
+              },
+              {
+                "glob": "{search_20_regular.svg,arrow_clockwise_20_regular.svg,weather_moon_20_regular.svg,weather_sunny_20_regular.svg,phone_20_regular.svg,call_20_regular.svg,people_20_regular.svg,contact_card_20_regular.svg,sparkle_20_regular.svg,brain_circuit_20_regular.svg,checkmark_circle_20_regular.svg,dismiss_circle_20_regular.svg,dismiss_20_regular.svg,chevron_left_20_regular.svg,chevron_right_20_regular.svg,info_20_regular.svg,history_20_regular.svg,open_20_regular.svg,navigation_20_regular.svg,settings_20_regular.svg,beaker_20_regular.svg,shield_checkmark_20_regular.svg,branch_fork_20_regular.svg,data_usage_20_regular.svg,target_arrow_20_regular.svg,save_20_regular.svg,arrow_reset_20_regular.svg,lock_closed_20_regular.svg,document_data_20_regular.svg,pulse_20_regular.svg,warning_20_regular.svg,question_circle_20_regular.svg}",
+                "input": "node_modules/@fluentui/svg-icons/icons",
+                "output": "icons"
+              }
+            ],
+            "styles": ["src/styles.scss", "src/app/features/settings/settings-page.component.scss"],
+            "server": "src/main.server.ts",
+            "outputMode": "server",
+            "security": {
+              "allowedHosts": []
+            },
+            "allowedCommonJsDependencies": ["@fluentui/tokens"],
+            "ssr": {
+              "entry": "src/server.ts"
+            }
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "crm-web:build:production"
+            },
+            "development": {
+              "buildTarget": "crm-web:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
+    }
+  }
+}

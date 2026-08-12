@@ -1,0 +1,565 @@
+app-settings-page {
+  display: block;
+  min-block-size: 100dvh;
+}
+
+.settings-page {
+  --settings-index-width: 188px;
+  --settings-review-width: 320px;
+}
+
+.settings-heading {
+  align-items: center;
+}
+
+.heading-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacingHorizontalS);
+}
+
+.scope-notice,
+.current-runtime {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacingHorizontalM);
+  margin-block-end: var(--spacingVerticalL);
+  padding: var(--spacingVerticalM) var(--spacingHorizontalL);
+  border: var(--strokeWidthThin) solid var(--colorBrandStroke2);
+  border-radius: var(--borderRadiusLarge);
+  background: var(--colorBrandBackground2);
+}
+
+.scope-notice > app-fluent-icon {
+  margin-block-start: var(--spacingVerticalXXS);
+  color: var(--colorBrandForeground1);
+}
+
+.scope-notice p,
+.current-runtime p,
+.config-card-heading p,
+.locked-note,
+.activation-boundary p {
+  margin: 0;
+  color: var(--colorNeutralForeground2);
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: var(--settings-index-width) minmax(0, 1fr) var(--settings-review-width);
+  align-items: start;
+  gap: var(--spacingHorizontalL);
+}
+
+.settings-index,
+.review-panel {
+  position: sticky;
+  inset-block-start: var(--crm-sticky-offset);
+}
+
+.settings-index {
+  padding-block: var(--spacingVerticalM);
+}
+
+.settings-index nav {
+  display: grid;
+  gap: var(--spacingVerticalXXS);
+}
+
+.settings-index a {
+  display: flex;
+  min-block-size: var(--crm-interactive-size);
+  align-items: center;
+  gap: var(--spacingHorizontalS);
+  padding-inline: var(--spacingHorizontalM);
+  border-radius: var(--borderRadiusMedium);
+  color: var(--colorNeutralForeground2);
+  font-weight: var(--fontWeightSemibold);
+  text-decoration: none;
+}
+
+.settings-index a:hover {
+  background: var(--colorSubtleBackgroundHover);
+  color: var(--colorNeutralForeground1);
+}
+
+.settings-index .settings-index-link--active {
+  background: var(--colorBrandBackground2);
+  color: var(--colorBrandForeground1);
+}
+
+.settings-content {
+  display: grid;
+  min-inline-size: 0;
+  gap: var(--spacingVerticalL);
+}
+
+.settings-loading {
+  display: flex;
+  min-block-size: 240px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacingHorizontalL);
+  padding: var(--spacingVerticalXXL);
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadiusLarge);
+  background: var(--colorNeutralBackground1);
+  text-align: start;
+}
+
+.settings-loading p {
+  margin: var(--spacingVerticalXXS) 0 0;
+  color: var(--colorNeutralForeground2);
+}
+
+.current-runtime {
+  align-items: center;
+  margin-block-end: 0;
+  border-color: var(--colorPaletteGreenBorder1);
+  background: var(--colorPaletteGreenBackground1);
+}
+
+.current-runtime--warning {
+  border-color: var(--colorPaletteYellowBorder1);
+  background: var(--colorPaletteYellowBackground1);
+}
+
+.current-runtime--warning > div > span {
+  color: var(--colorPaletteYellowForeground1);
+}
+
+.current-runtime > div {
+  min-inline-size: 0;
+  flex: 1;
+}
+
+.current-runtime > div > span {
+  color: var(--colorPaletteGreenForeground1);
+  font-size: var(--fontSizeBase200);
+  font-weight: var(--fontWeightSemibold);
+}
+
+.current-runtime h2 {
+  margin-block: var(--spacingVerticalXXS);
+}
+
+.current-runtime app-fluent-button {
+  margin-block-start: var(--spacingVerticalS);
+}
+
+code {
+  overflow-wrap: anywhere;
+  font-family: var(--fontFamilyMonospace);
+  font-size: var(--fontSizeBase200);
+}
+
+.config-card,
+.review-card,
+.json-preview {
+  min-inline-size: 0;
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadiusLarge);
+  background: var(--colorNeutralBackground1);
+  box-shadow: var(--shadow2);
+}
+
+.config-card {
+  scroll-margin-block-start: calc(var(--crm-sticky-offset) + var(--spacingVerticalM));
+}
+
+.config-card:focus {
+  outline: var(--strokeWidthThick) solid var(--colorStrokeFocus2);
+  outline-offset: var(--spacingHorizontalXXS);
+}
+
+.config-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacingHorizontalM);
+  padding: var(--spacingVerticalL) var(--spacingHorizontalL);
+  border-block-end: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+}
+
+.config-card-heading h2 {
+  margin-block-end: var(--spacingVerticalXXS);
+}
+
+.config-card-icon {
+  display: grid;
+  flex: 0 0 auto;
+  inline-size: var(--crm-interactive-size);
+  block-size: var(--crm-interactive-size);
+  place-items: center;
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorBrandBackground2);
+  color: var(--colorBrandForeground1);
+}
+
+.config-card-icon--success {
+  background: var(--colorPaletteGreenBackground2);
+  color: var(--colorPaletteGreenForeground2);
+}
+
+.control-stack {
+  display: grid;
+  gap: var(--spacingVerticalL);
+  padding: var(--spacingVerticalL) var(--spacingHorizontalL);
+}
+
+.control-divider {
+  block-size: var(--strokeWidthThin);
+  background: var(--colorNeutralStroke2);
+}
+
+.locked-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacingHorizontalM);
+}
+
+.locked-grid > div {
+  display: grid;
+  gap: var(--spacingVerticalXXS);
+  padding: var(--spacingVerticalM) var(--spacingHorizontalM);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground2);
+}
+
+.locked-grid span,
+.artifact-list span {
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+}
+
+.config-label {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacingHorizontalS);
+}
+
+.locked-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacingHorizontalS);
+  font-size: var(--fontSizeBase200);
+}
+
+.invariant-list {
+  display: grid;
+  gap: var(--spacingVerticalS);
+}
+
+.invariant-list > div {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingHorizontalS);
+  color: var(--colorNeutralForeground2);
+}
+
+.invariant-list > div > span,
+.guardrail-list li > span {
+  min-inline-size: 0;
+  flex: 1;
+}
+
+.invariant-list app-fluent-icon,
+.locked-note app-fluent-icon {
+  color: var(--colorNeutralForeground3);
+}
+
+.artifact-list {
+  margin: 0;
+  padding: 0 var(--spacingHorizontalL);
+}
+
+.artifact-list > div {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.65fr) minmax(0, 1fr);
+  gap: var(--spacingHorizontalL);
+  padding-block: var(--spacingVerticalM);
+  border-block-end: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+}
+
+.artifact-list > div:last-child {
+  border-block-end: 0;
+}
+
+.artifact-list dt {
+  color: var(--colorNeutralForeground3);
+}
+
+.artifact-list dt.config-label {
+  align-self: start;
+}
+
+.artifact-list dd {
+  display: grid;
+  min-inline-size: 0;
+  margin: 0;
+  gap: var(--spacingVerticalXXS);
+}
+
+.switch-list app-fluent-switch:not(:last-of-type) {
+  padding-block-end: var(--spacingVerticalM);
+  border-block-end: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+}
+
+.guardrail-list {
+  display: grid;
+  margin: 0;
+  padding: var(--spacingVerticalL) var(--spacingHorizontalL);
+  gap: var(--spacingVerticalM);
+  list-style: none;
+}
+
+.guardrail-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingHorizontalS);
+}
+
+.guardrail-list app-fluent-icon {
+  color: var(--colorPaletteGreenForeground1);
+}
+
+.review-card {
+  display: grid;
+  max-block-size: calc(100dvh - var(--crm-sticky-offset) - var(--spacingVerticalL));
+  overflow-y: auto;
+  gap: var(--spacingVerticalL);
+  padding: var(--spacingVerticalL) var(--spacingHorizontalL);
+}
+
+.review-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacingHorizontalS);
+}
+
+.review-heading h2 {
+  margin-block-end: 0;
+}
+
+.review-heading > div {
+  min-inline-size: 0;
+}
+
+.review-heading app-fluent-badge {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.review-summary {
+  display: grid;
+  margin: 0;
+  gap: var(--spacingVerticalM);
+}
+
+.review-summary > div {
+  display: grid;
+  gap: var(--spacingVerticalXXS);
+}
+
+.review-summary dt {
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+}
+
+.review-summary dd {
+  margin: 0;
+  font-weight: var(--fontWeightSemibold);
+}
+
+.review-block {
+  display: grid;
+  gap: var(--spacingVerticalS);
+  padding-block-start: var(--spacingVerticalL);
+  border-block-start: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+}
+
+.review-block strong {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingHorizontalS);
+}
+
+.review-block ul {
+  display: grid;
+  margin: 0;
+  padding-inline-start: var(--spacingHorizontalL);
+  gap: var(--spacingVerticalS);
+  color: var(--colorNeutralForeground2);
+  font-size: var(--fontSizeBase200);
+}
+
+.review-block--warning {
+  margin-inline: calc(var(--spacingHorizontalM) * -1);
+  padding: var(--spacingVerticalM) var(--spacingHorizontalM);
+  border: var(--strokeWidthThin) solid var(--colorPaletteYellowBorder1);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorPaletteYellowBackground1);
+}
+
+.activation-boundary {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacingHorizontalS);
+  padding: var(--spacingVerticalM) var(--spacingHorizontalM);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground2);
+}
+
+.activation-boundary app-fluent-icon {
+  flex: 0 0 auto;
+  color: var(--colorNeutralForeground3);
+}
+
+.activation-boundary p {
+  margin-block-start: var(--spacingVerticalXXS);
+  font-size: var(--fontSizeBase200);
+}
+
+.activation-fields {
+  display: grid;
+  gap: var(--spacingVerticalM);
+}
+
+.activation-guidance {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacingHorizontalS);
+  margin: calc(var(--spacingVerticalS) * -1) 0 0;
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+}
+
+.activation-guidance--ready {
+  color: var(--colorPaletteGreenForeground1);
+}
+
+.json-preview {
+  overflow: hidden;
+}
+
+.json-preview summary {
+  display: flex;
+  min-block-size: var(--crm-interactive-size);
+  align-items: center;
+  gap: var(--spacingHorizontalS);
+  padding: var(--spacingVerticalM) var(--spacingHorizontalL);
+  cursor: pointer;
+  font-weight: var(--fontWeightSemibold);
+}
+
+.json-preview pre {
+  max-block-size: 420px;
+  overflow: auto;
+  margin: 0;
+  padding: var(--spacingVerticalL) var(--spacingHorizontalL);
+  border-block-start: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground1);
+}
+
+@media (max-width: 1280px) {
+  .settings-layout {
+    grid-template-columns: var(--settings-index-width) minmax(0, 1fr);
+  }
+
+  .review-panel {
+    position: static;
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .review-card {
+    max-block-size: none;
+  }
+
+  .settings-content {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 860px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-index {
+    position: static;
+    overflow-x: auto;
+    padding-block: 0;
+  }
+
+  .settings-index > p {
+    display: none;
+  }
+
+  .settings-index nav {
+    display: flex;
+    min-inline-size: max-content;
+  }
+
+  .settings-content,
+  .review-panel {
+    grid-column: 1;
+  }
+
+  .review-panel {
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .heading-actions,
+  .heading-actions app-fluent-button {
+    inline-size: 100%;
+  }
+
+  .heading-actions {
+    justify-content: flex-start;
+  }
+
+  .scope-notice,
+  .current-runtime {
+    padding-inline: var(--spacingHorizontalM);
+  }
+
+  .current-runtime {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .config-card-heading,
+  .control-stack,
+  .guardrail-list,
+  .json-preview summary,
+  .json-preview pre {
+    padding-inline: var(--spacingHorizontalM);
+  }
+
+  .locked-grid,
+  .artifact-list > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .artifact-list > div {
+    gap: var(--spacingVerticalXXS);
+  }
+}
+
+@media (forced-colors: active) {
+  .config-card-icon,
+  .scope-notice,
+  .current-runtime,
+  .review-block--warning {
+    border: var(--strokeWidthThin) solid CanvasText;
+  }
+}

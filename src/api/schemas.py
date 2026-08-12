@@ -93,6 +93,7 @@ class RecommendationRequest(StrictModel):
     eligible_actions: Annotated[list[Action], Field(min_length=1, max_length=2)]
     contact_authorized: bool
     do_not_contact: bool
+    targeting_key: Annotated[str | None, Field(min_length=1, max_length=128)] = None
 
     @model_validator(mode="after")
     def validate_unique_actions(self) -> "RecommendationRequest":

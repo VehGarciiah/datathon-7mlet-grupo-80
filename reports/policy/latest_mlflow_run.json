@@ -1,5 +1,5 @@
 {
-  "run_id": "c9624a3a82f547ee99a418b41bd8ac07",
+  "run_id": "bf1b3224ff4d404aa29ddf8c77bc8f0c",
   "experiment_id": "2",
   "tracking_uri": "http://mlflow:5000",
   "run_name": "segmented-thompson-replay-v1-1"

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import shutil
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -16,6 +15,12 @@ from uuid import uuid4
 import joblib
 import yaml
 
+from src.api.feature_flags import (
+    RuntimeConfiguration,
+    RuntimeConfigurationProvider,
+    build_runtime_configuration_provider,
+    fallback_targeting_key,
+)
 from src.api.repository import (
     ConflictingFeedbackError,
     FeedbackRecord,
@@ -152,6 +157,7 @@ class RecommendationService:
         *,
         database_path: str | Path | None = None,
         policy_mode: str | None = None,
+        runtime_configuration_provider: RuntimeConfigurationProvider | None = None,
     ) -> None:
         self.config = config
         selected_database = (
@@ -167,6 +173,9 @@ class RecommendationService:
         self.fallback_reason: str | None = None
         self.active_policy: Any | None = None
         self.active_policy_mode: str | None = None
+        self.fixed_policy: Any | None = None
+        self.adaptive_policy: SegmentedThompsonSamplingPolicy | None = None
+        self.adaptive_policy_approved = False
         self.model_version: str | None = None
         self.m3_run_id = _read_json_if_available(config.m3_latest_run_path).get("run_id")
         self.m4_run_id = _read_json_if_available(config.m4_latest_run_path).get("run_id")
@@ -174,6 +183,12 @@ class RecommendationService:
             policy_mode
             or os.getenv(config.policy_mode_environment_variable)
             or config.default_policy_mode
+        )
+        self.runtime_configuration_provider = runtime_configuration_provider or (
+            build_runtime_configuration_provider(
+                default_policy_mode=requested_mode,
+                attribution_window_days=config.attribution_window_days,
+            )
         )
         self._load_artifacts(requested_mode)
 
@@ -195,10 +210,10 @@ class RecommendationService:
     def _load_adaptive_demo(self) -> SegmentedThompsonSamplingPolicy:
         """Restaura estado de demonstração isolado do artefato inicial."""
         runtime_path = self.config.adaptive_runtime_state_path
-        if not runtime_path.exists():
-            runtime_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(self.config.adaptive_initial_state_path, runtime_path)
-        return SegmentedThompsonSamplingPolicy.load_state(runtime_path)
+        source_path = (
+            runtime_path if runtime_path.exists() else self.config.adaptive_initial_state_path
+        )
+        return SegmentedThompsonSamplingPolicy.load_state(source_path)
 
     def _load_artifacts(self, requested_mode: str) -> None:
         """Resolve política aprovada e sempre prioriza rollback seguro."""
@@ -212,45 +227,72 @@ class RecommendationService:
 
         m4_report = _read_json_if_available(self.config.m4_evaluation_path)
         adaptive_status = m4_report.get("selection", {}).get("status")
-        if requested_mode == self.config.adaptive_demo_mode:
-            if not self.config.adaptive_demo_enabled:
-                self.fallback_reason = "Modo adaptativo demonstrativo desabilitado."
-            else:
-                try:
-                    self.active_policy = self._load_adaptive_demo()
-                    self.active_policy_mode = self.config.adaptive_demo_mode
-                    self.is_ready = True
-                    self.fallback_reason = (
-                        "Modo demonstrativo explícito; política não aprovada para promoção."
-                    )
-                    return
-                except Exception as exc:  # noqa: BLE001 - fallback é requisito operacional.
-                    LOGGER.exception("Falha no estado adaptativo; aplicando rollback fixo.")
+        self.fixed_policy = fixed_policy
+        self.adaptive_policy_approved = adaptive_status == "approved"
+        if self.config.adaptive_demo_enabled or self.adaptive_policy_approved:
+            try:
+                self.adaptive_policy = self._load_adaptive_demo()
+            except Exception as exc:  # noqa: BLE001 - baseline continua disponível.
+                LOGGER.exception("Falha no estado adaptativo; mantendo rollback fixo.")
+                if requested_mode == self.config.adaptive_demo_mode:
                     self.fallback_reason = (
                         "Estado adaptativo indisponível; rollback fixo aplicado "
                         f"({type(exc).__name__})."
                     )
-        elif adaptive_status == "approved":
-            try:
-                self.active_policy = self._load_adaptive_demo()
+        if requested_mode == self.config.adaptive_demo_mode:
+            if not self.config.adaptive_demo_enabled:
+                self.fallback_reason = "Modo adaptativo demonstrativo desabilitado."
+            elif self.adaptive_policy is not None:
+                self.active_policy = self.adaptive_policy
+                self.active_policy_mode = self.config.adaptive_demo_mode
+                self.is_ready = True
+                self.fallback_reason = (
+                    "Modo demonstrativo explícito; política não aprovada para promoção."
+                )
+                return
+        elif self.adaptive_policy_approved and self.adaptive_policy is not None:
+            if requested_mode in {
+                self.config.default_policy_mode,
+                self.config.approved_adaptive_mode,
+            }:
+                self.active_policy = self.adaptive_policy
                 self.active_policy_mode = self.config.approved_adaptive_mode
                 self.is_ready = True
                 return
-            except Exception as exc:  # noqa: BLE001 - rollback é requisito operacional.
-                LOGGER.exception("Falha no estado adaptativo aprovado; aplicando rollback.")
-                self.fallback_reason = (
-                    "Estado adaptativo aprovado indisponível; rollback fixo aplicado "
-                    f"({type(exc).__name__})."
-                )
         elif adaptive_status != "approved":
-            self.fallback_reason = (
-                f"Política adaptativa com status {adaptive_status or 'desconhecido'}; "
-                "rollback fixo mantido."
-            )
+            if self.fallback_reason is None:
+                self.fallback_reason = (
+                    f"Política adaptativa com status {adaptive_status or 'desconhecido'}; "
+                    "rollback fixo mantido."
+                )
 
         self.active_policy = fixed_policy
         self.active_policy_mode = "approved_fixed_rollback"
         self.is_ready = True
+
+    def _select_runtime_policy(
+        self,
+        runtime: RuntimeConfiguration,
+        targeting_key: str,
+    ) -> tuple[Any, str, bool, str | None]:
+        """Seleciona baseline ou candidata sem permitir que flags removam guardrails."""
+        if self.fixed_policy is None:
+            raise ServiceNotReadyError("Serviço sem política de rollback carregada.")
+        if runtime.kill_switch:
+            return self.fixed_policy, "approved_fixed_kill_switch", False, "kill_switch"
+        if runtime.policy_mode == self.config.default_policy_mode:
+            return self.fixed_policy, "approved_fixed_rollback", False, None
+        if not runtime.allocates_adaptive(targeting_key):
+            return self.fixed_policy, "approved_fixed_rollout", False, None
+        if runtime.policy_mode == self.config.adaptive_demo_mode:
+            if self.config.adaptive_demo_enabled and self.adaptive_policy is not None:
+                return self.adaptive_policy, self.config.adaptive_demo_mode, True, None
+            return self.fixed_policy, "approved_fixed_rollback", False, "adaptive_unavailable"
+        if runtime.policy_mode == self.config.approved_adaptive_mode:
+            if self.adaptive_policy_approved and self.adaptive_policy is not None:
+                return self.adaptive_policy, self.config.approved_adaptive_mode, True, None
+            return self.fixed_policy, "approved_fixed_rollback", False, "adaptive_not_approved"
+        return self.fixed_policy, "approved_fixed_rollback", False, "invalid_policy_mode"
 
     def readiness(self) -> ReadyResponse:
         """Resume carregamento sem revelar caminhos internos."""
@@ -281,20 +323,27 @@ class RecommendationService:
 
         context = request.context.model_dump(mode="json")
         eligible_actions = [action.value for action in request.eligible_actions]
+        targeting_key = request.targeting_key or fallback_targeting_key(context)
+        runtime = self.runtime_configuration_provider.resolve(targeting_key)
+        policy, policy_mode, adaptive_allocated, runtime_fallback = (
+            self._select_runtime_policy(runtime, targeting_key)
+        )
         with self.lock:
-            decision = self.active_policy.recommend(context, eligible_actions)
+            decision = policy.recommend(context, eligible_actions)
             recommendation_id = str(uuid4())
             created_at = datetime.now(timezone.utc)
             learning_context = {
                 column: context[column] for column in self.config.adaptive_segment_columns
             }
+            learning_context["__targeting_key"] = targeting_key
+            learning_context["__configuration_version"] = runtime.version
             record = RecommendationRecord(
                 recommendation_id=recommendation_id,
                 created_at=created_at,
                 recommended_action=decision.action,
                 policy_id=decision.policy_id,
                 policy_version=decision.policy_version,
-                policy_mode=str(self.active_policy_mode),
+                policy_mode=policy_mode,
                 model_version=self.model_version,
                 is_exploration=decision.is_exploration,
                 used_fallback=decision.used_fallback,
@@ -305,9 +354,20 @@ class RecommendationService:
             self.repository.save_recommendation(record)
 
         evidence: dict[str, Any] = {
-            "policy_mode": self.active_policy_mode,
+            "policy_mode": policy_mode,
             "causal_claim": False,
             "uses_audit_only_attributes": False,
+            "openfeature": {
+                "configuration_version": runtime.version,
+                "source": runtime.source,
+                "requested_policy_mode": runtime.policy_mode,
+                "kill_switch": runtime.kill_switch,
+                "adaptive_traffic_percentage": runtime.adaptive_traffic_percentage,
+                "adaptive_allocated": adaptive_allocated,
+                "experiment_name": runtime.experiment_name or None,
+                "learning_enabled": runtime.learning_enabled,
+                "fallback_reason": runtime_fallback,
+            },
         }
         if decision.details:
             evidence.update(decision.details)
@@ -359,9 +419,14 @@ class RecommendationService:
                     "Feedback está além da tolerância de relógio futura."
                 )
 
-            deadline = recommendation.created_at + timedelta(
-                days=self.config.attribution_window_days
+            targeting_key = str(
+                recommendation.learning_context.get(
+                    "__targeting_key",
+                    fallback_targeting_key(recommendation.learning_context),
+                )
             )
+            runtime = self.runtime_configuration_provider.resolve(targeting_key)
+            deadline = recommendation.created_at + timedelta(days=runtime.attribution_window_days)
             learning_applied = False
             if observed_at > deadline:
                 learning_reason = (
@@ -373,18 +438,27 @@ class RecommendationService:
                     self.config.adaptive_demo_mode,
                     self.config.approved_adaptive_mode,
                 }
-                and self.active_policy_mode == recommendation.policy_mode
-                and isinstance(self.active_policy, SegmentedThompsonSamplingPolicy)
+                and runtime.learning_enabled
+                and not runtime.kill_switch
+                and isinstance(self.adaptive_policy, SegmentedThompsonSamplingPolicy)
             ):
-                learning_applied = self.active_policy.update(
+                learning_applied = self.adaptive_policy.update(
                     recommendation.recommended_action,
                     request.reward,
                     recommendation.learning_context,
                     feedback_id=recommendation_id,
                 )
-                self.active_policy.save_state(self.config.adaptive_runtime_state_path)
+                self.adaptive_policy.save_state(self.config.adaptive_runtime_state_path)
                 learning_reason = (
-                    "Posterior demonstrativo atualizado somente para o braço recomendado."
+                    "Posterior adaptativo atualizado somente para o braço recomendado."
+                )
+            elif recommendation.policy_mode in {
+                self.config.adaptive_demo_mode,
+                self.config.approved_adaptive_mode,
+            }:
+                learning_reason = (
+                    "Aprendizado online desabilitado pela configuração OpenFeature atual; "
+                    "feedback apenas auditado."
                 )
             else:
                 learning_reason = (
